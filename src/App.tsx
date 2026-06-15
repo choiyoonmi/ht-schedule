@@ -269,7 +269,7 @@ function App() {
     return (
       <div style={styles.loginContainer}>
         <div style={styles.loginBox}>
-          <h1 style={styles.loginIcon}>🎓</h1>
+          <div style={styles.logo}>H</div>
           <h2 style={styles.loginTitle}>해피트리학원</h2>
           <p style={styles.loginSubtitle}>관리자 번호를 입력해주세요</p>
           <input
@@ -292,7 +292,10 @@ function App() {
     return (
       <div style={styles.app}>
         <header style={styles.header}>
-          <h1 style={styles.headerTitle}>🎓 해피트리학원 스케줄</h1>
+          <div style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
+            <div style={{...styles.logo, width: '40px', height: '40px', fontSize: '20px', margin: 0}}>H</div>
+            <h1 style={styles.headerTitle}>해피트리학원 스케줄</h1>
+          </div>
           <div style={styles.headerButtons}>
             <button onClick={() => setCurrentView('dashboard')} style={{...styles.tabBtn, ...styles.tabBtnActive}}>
               📊 메인
@@ -657,6 +660,20 @@ const styles: Record<string, React.CSSProperties> = {
     textAlign: 'center',
     maxWidth: '400px',
   },
+  logo: {
+    width: '60px',
+    height: '60px',
+    backgroundColor: '#001F4D',
+    borderRadius: '50%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '32px',
+    fontWeight: 'bold',
+    color: 'white',
+    border: '3px solid #D4AF37',
+    margin: '0 auto 10px',
+  } as any,
   loginIcon: { fontSize: '48px', marginBottom: '10px' } as any,
   loginTitle: { fontSize: '24px', marginBottom: '30px', color: '#333' } as any,
   loginSubtitle: { fontSize: '14px', color: '#666', marginBottom: '20px' } as any,
