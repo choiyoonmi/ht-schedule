@@ -324,44 +324,33 @@ function App() {
                       <h4>{student.name}</h4>
                       <span style={styles.gradeBadge}>{student.division} {student.grade}학년</span>
                     </div>
-                    <table style={styles.scheduleTable}>
-                      <thead>
-                        <tr>
-                          <th style={styles.th}>시간</th>
-                          {DAYS.map(day => <th key={day} style={styles.th}>{day}</th>)}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {Array.from({length: endHour - startHour}, (_, i) => startHour + i).map(hour => (
-                          <tr key={hour}>
-                            <td style={styles.timeCell}>{hour}:00</td>
-                            {DAYS.map(day => {
-                              const entries = studentSchedule.filter(e => e.day === day && e.hour === hour);
-                              return (
-                                <td key={day} style={styles.scheduleCell}>
-                                  {entries.map((e, idx) => {
-                                    const color = TEACHER_COLORS[e.teacherName] || { bg: '#F5F5F5', border: '#999', text: '#333' };
-                                    return (
-                                      <div key={idx} style={{
-                                        backgroundColor: color.bg,
-                                        borderLeft: `3px solid ${color.border}`,
-                                        padding: '4px',
-                                        marginBottom: '2px',
-                                        borderRadius: '2px',
-                                      }}>
-                                        <div style={{fontWeight: 'bold', fontSize: '11px', color: color.text}}>
-                                          {e.subject}({e.teacherName[0]})
-                                        </div>
-                                      </div>
-                                    );
-                                  })}
-                                </td>
-                              );
-                            })}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                    <div style={{display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px'}}>
+                      {studentSchedule.length > 0 ? (
+                        studentSchedule.map((e, idx) => {
+                          const color = TEACHER_COLORS[e.teacherName] || { bg: '#F5F5F5', border: '#999', text: '#333' };
+                          return (
+                            <div key={idx} style={{
+                              backgroundColor: color.bg,
+                              border: `2px solid ${color.border}`,
+                              borderRadius: '6px',
+                              padding: '12px',
+                              textAlign: 'center',
+                            }}>
+                              <div style={{fontWeight: 'bold', fontSize: '13px', color: color.text, marginBottom: '6px'}}>
+                                {e.subject}({e.teacherName[0]})
+                              </div>
+                              <div style={{fontSize: '12px', color: color.text}}>
+                                {e.day} {e.hour}:00
+                              </div>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <div style={{gridColumn: '1 / -1', textAlign: 'center', color: '#999', padding: '20px'}}>
+                          수강 과목이 없습니다
+                        </div>
+                      )}
+                    </div>
                   </div>
                 );
               })}
@@ -751,8 +740,8 @@ const styles: Record<string, React.CSSProperties> = {
     overflow: 'auto',
   },
   scheduleContainer: {
-    display: 'flex',
-    flexDirection: 'column',
+    display: 'grid',
+    gridTemplateColumns: 'repeat(3, 1fr)',
     gap: '20px',
   },
   studentScheduleSection: {
