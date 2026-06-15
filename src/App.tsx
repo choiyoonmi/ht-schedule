@@ -379,7 +379,10 @@ function App() {
   return (
     <div style={styles.app}>
       <header style={styles.header}>
-        <h1 style={styles.headerTitle}>🎓 해피트리학원 스케줄</h1>
+        <div style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
+          <div style={{...styles.logo, width: '40px', height: '40px', fontSize: '20px', margin: 0}}>H</div>
+          <h1 style={styles.headerTitle}>해피트리학원 스케줄</h1>
+        </div>
         <div style={styles.headerButtons}>
           <button onClick={() => setCurrentView('dashboard')} style={{...styles.tabBtn}}>
             📊 메인
