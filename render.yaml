@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: ht-schedule
+    runtime: node
+    buildCommand: npm install && npm run build
+    startCommand: npx serve -s dist --listen 3000
+    envVars:
+      - key: NODE_ENV
+        value: production
