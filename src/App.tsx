@@ -61,7 +61,7 @@ const TEACHER_COLORS: Record<string, {bg: string; border: string; text: string}>
   '숙제반': { bg: '#FFFDE7', border: '#F9A825', text: '#F57F17' },
 };
 
-const ADMIN_PASSWORD = '1234';
+const ADMIN_PASSWORD = '75356';
 
 function getSubjectsForDivision(division: Division): string[] {
   if (division === '초등부') return ['국어', '초등수학', '초등영어', '숙제반'];
