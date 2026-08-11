@@ -166,6 +166,7 @@ function App() {
   // 시간표 직접 편집(드래그 이동 / 클릭 복사·붙여넣기)
   const [copied, setCopied] = useState<{studentId: string; subject: string; teacherId: string; teacherName: string; day: DayOfWeek; hour: number} | null>(null);
   const dragRef = useRef<{studentId: string; subject: string; day: DayOfWeek; hour: number} | null>(null);
+  const [history, setHistory] = useState<Student[][]>([]); // 되돌리기용 편집 이력
 
   useEffect(() => {
     localStorage.setItem('happytree_seed_version', SEED_VERSION);
@@ -184,12 +185,20 @@ function App() {
     setSchedule(generateSchedule(students));
   }, [students]);
 
+  const pushHistory = () => setHistory([...history.slice(-29), students]); // 편집 전 상태 저장(최근 30개)
+  const undo = () => {
+    if (history.length === 0) return;
+    setStudents(history[history.length - 1]);
+    setHistory(history.slice(0, -1));
+    setCopied(null);
+  };
   const findTeacherId = (student: Student, subject: string, day: DayOfWeek, hour: number): string => {
     const f = (student.selectedTeachers[subject] || []).find(x => x.day === day && x.hour === hour);
     return f ? f.teacherId : '';
   };
   const moveClass = (studentId: string, subject: string, srcDay: DayOfWeek, srcHour: number, dstDay: DayOfWeek, dstHour: number) => {
     if (srcDay === dstDay && srcHour === dstHour) return;
+    pushHistory();
     setStudents(prev => prev.map(s => {
       if (s.id !== studentId) return s;
       const cur = s.selectedTeachers[subject] || [];
@@ -198,6 +207,7 @@ function App() {
     }));
   };
   const pasteClass = (studentId: string, subject: string, teacherId: string, dstDay: DayOfWeek, dstHour: number) => {
+    pushHistory();
     setStudents(prev => prev.map(s => {
       if (s.id !== studentId) return s;
       const cur = s.selectedTeachers[subject] || [];
@@ -206,6 +216,7 @@ function App() {
     }));
   };
   const deleteClass = (studentId: string, subject: string, day: DayOfWeek, hour: number) => {
+    pushHistory();
     setStudents(prev => prev.map(s => {
       if (s.id !== studentId) return s;
       const cur = s.selectedTeachers[subject] || [];
@@ -324,13 +335,20 @@ function App() {
               <button onClick={() => setScheduleSearch('')} style={{...styles.tabBtn, padding:'6px 12px'}}>✕ 전체 보기</button>
             )}
           </div>
-          <p style={{fontSize:'12px', color:'#888', margin:'0 0 8px'}}>
-            💡 시간표 편집: 과목을 <b>드래그</b>해서 옮기기 · 과목 <b>클릭</b>해 복사 후 원하는 칸 <b>클릭</b>해 붙여넣기 · 과목의 <b style={{color:'#d32f2f'}}>×</b> 눌러 삭제
-          </p>
+          <div style={{display:'flex', alignItems:'center', gap:'10px', flexWrap:'wrap', margin:'0 0 8px'}}>
+            <button
+              onClick={undo}
+              disabled={history.length === 0}
+              style={{padding:'5px 12px', borderRadius:'4px', border:'1px solid #1976D2', cursor: history.length ? 'pointer' : 'not-allowed', fontSize:'12px', fontWeight:'bold', background: history.length ? '#1976D2' : '#ccc', color:'#fff'}}
+            >↩️ 되돌리기{history.length ? ` (${history.length})` : ''}</button>
+            <span style={{fontSize:'12px', color:'#888'}}>
+              💡 시간표 편집: 과목을 <b>드래그</b>해서 옮기기 · 과목 <b>클릭</b>해 복사 후 원하는 칸 <b>클릭</b>해 붙여넣기 · 과목의 <b style={{color:'#d32f2f'}}>×</b> 눌러 삭제
+            </span>
+          </div>
           {copied && (
             <div style={{background:'#E3F2FD', border:'1px solid #1976D2', borderRadius:'6px', padding:'8px 12px', marginBottom:'10px', display:'flex', alignItems:'center', gap:'10px', fontSize:'13px'}}>
               📋 <b>{copied.subject}({copied.teacherName})</b> 복사됨 — 붙여넣을 칸을 클릭하세요 <span style={{color:'#888'}}>(다른 과목을 클릭하면 그걸로 바뀜)</span>
-              <button onClick={() => setCopied(null)} style={{...styles.tabBtn, padding:'4px 10px', marginLeft:'auto'}}>취소</button>
+              <button onClick={() => setCopied(null)} style={{padding:'4px 12px', marginLeft:'auto', background:'#1976D2', color:'#fff', border:'none', borderRadius:'4px', cursor:'pointer', fontSize:'12px', fontWeight:'bold'}}>취소</button>
             </div>
           )}
           {students.length > 0 ? (
