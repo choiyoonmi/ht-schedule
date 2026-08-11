@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import './App.css';
 import { SEED_STUDENTS } from './seedStudents';
 
@@ -163,6 +163,9 @@ function App() {
   const [configTeacherId, setConfigTeacherId] = useState<string | null>(null);
   const [configDays, setConfigDays] = useState<DayOfWeek[]>([]);
   const [configHour, setConfigHour] = useState<number>(14);
+  // 시간표 직접 편집(드래그 이동 / 클릭 복사·붙여넣기)
+  const [copied, setCopied] = useState<{studentId: string; subject: string; teacherId: string; teacherName: string; day: DayOfWeek; hour: number} | null>(null);
+  const dragRef = useRef<{studentId: string; subject: string; day: DayOfWeek; hour: number} | null>(null);
 
   useEffect(() => {
     localStorage.setItem('happytree_seed_version', SEED_VERSION);
@@ -180,6 +183,35 @@ function App() {
   useEffect(() => {
     setSchedule(generateSchedule(students));
   }, [students]);
+
+  const findTeacherId = (student: Student, subject: string, day: DayOfWeek, hour: number): string => {
+    const f = (student.selectedTeachers[subject] || []).find(x => x.day === day && x.hour === hour);
+    return f ? f.teacherId : '';
+  };
+  const moveClass = (studentId: string, subject: string, srcDay: DayOfWeek, srcHour: number, dstDay: DayOfWeek, dstHour: number) => {
+    if (srcDay === dstDay && srcHour === dstHour) return;
+    setStudents(prev => prev.map(s => {
+      if (s.id !== studentId) return s;
+      const cur = s.selectedTeachers[subject] || [];
+      const next = cur.map(x => (x.day === srcDay && x.hour === srcHour) ? { ...x, day: dstDay, hour: dstHour } : x);
+      return { ...s, selectedTeachers: { ...s.selectedTeachers, [subject]: next } };
+    }));
+  };
+  const pasteClass = (studentId: string, subject: string, teacherId: string, dstDay: DayOfWeek, dstHour: number) => {
+    setStudents(prev => prev.map(s => {
+      if (s.id !== studentId) return s;
+      const cur = s.selectedTeachers[subject] || [];
+      if (cur.some(x => x.day === dstDay && x.hour === dstHour)) return s; // 이미 그 칸에 있으면 스킵
+      return { ...s, selectedTeachers: { ...s.selectedTeachers, [subject]: [...cur, { teacherId, day: dstDay, hour: dstHour }] } };
+    }));
+  };
+  const deleteClass = (studentId: string, subject: string, day: DayOfWeek, hour: number) => {
+    setStudents(prev => prev.map(s => {
+      if (s.id !== studentId) return s;
+      const cur = s.selectedTeachers[subject] || [];
+      return { ...s, selectedTeachers: { ...s.selectedTeachers, [subject]: cur.filter(x => !(x.day === day && x.hour === hour)) } };
+    }));
+  };
 
   const addStudent = () => {
     if (!newStudentName.trim()) return;
@@ -292,6 +324,15 @@ function App() {
               <button onClick={() => setScheduleSearch('')} style={{...styles.tabBtn, padding:'6px 12px'}}>✕ 전체 보기</button>
             )}
           </div>
+          <p style={{fontSize:'12px', color:'#888', margin:'0 0 8px'}}>
+            💡 시간표 편집: 과목을 <b>드래그</b>해서 옮기기 · 과목을 <b>클릭</b>해 복사 후 원하는 칸 <b>클릭</b>해 붙여넣기 · 과목 <b>더블클릭</b>으로 삭제
+          </p>
+          {copied && (
+            <div style={{background:'#E3F2FD', border:'1px solid #1976D2', borderRadius:'6px', padding:'8px 12px', marginBottom:'10px', display:'flex', alignItems:'center', gap:'10px', fontSize:'13px'}}>
+              📋 <b>{copied.subject}({copied.teacherName})</b> 복사됨 — 붙여넣을 칸을 클릭하세요 <span style={{color:'#888'}}>(다른 과목을 클릭하면 그걸로 바뀜)</span>
+              <button onClick={() => setCopied(null)} style={{...styles.tabBtn, padding:'4px 10px', marginLeft:'auto'}}>취소</button>
+            </div>
+          )}
           {students.length > 0 ? (
             <div style={styles.scheduleContainer}>
               {students.filter(s => !scheduleSearch.trim() || s.name.includes(scheduleSearch.trim())).map(student => {
@@ -319,17 +360,37 @@ function App() {
                             {DAYS.map(day => {
                               const entries = studentSchedule.filter(e => e.day === day && e.hour === hour);
                               return (
-                                <td key={day} style={{...styles.scheduleCell, padding: '4px', fontSize: '10px'}}>
+                                <td key={day}
+                                  onDragOver={(ev) => ev.preventDefault()}
+                                  onDrop={() => {
+                                    const d = dragRef.current;
+                                    if (d && d.studentId === student.id) {
+                                      moveClass(d.studentId, d.subject, d.day, d.hour, day, hour);
+                                    }
+                                    dragRef.current = null;
+                                  }}
+                                  onClick={() => { if (copied) pasteClass(student.id, copied.subject, copied.teacherId, day, hour); }}
+                                  style={{...styles.scheduleCell, padding: '4px', fontSize: '10px', cursor: copied ? 'copy' : undefined, minWidth: '36px', height: '24px'}}>
                                   {entries.map((e, idx) => {
                                     const color = TEACHER_COLORS[e.teacherName] || { bg: '#F5F5F5', border: '#999', text: '#333' };
+                                    const isCopied = !!copied && copied.studentId === student.id && copied.subject === e.subject && copied.day === day && copied.hour === hour;
                                     return (
-                                      <div key={idx} style={{
+                                      <div key={idx}
+                                        draggable
+                                        onDragStart={() => { dragRef.current = {studentId: student.id, subject: e.subject, day, hour}; }}
+                                        onDragEnd={() => { dragRef.current = null; }}
+                                        onClick={(ev) => { ev.stopPropagation(); setCopied({studentId: student.id, subject: e.subject, teacherId: findTeacherId(student, e.subject, day, hour), teacherName: e.teacherName, day, hour}); }}
+                                        onDoubleClick={(ev) => { ev.stopPropagation(); deleteClass(student.id, e.subject, day, hour); }}
+                                        title="드래그=이동 · 클릭=복사 · 더블클릭=삭제"
+                                        style={{
                                         backgroundColor: color.bg,
                                         borderLeft: `2px solid ${color.border}`,
                                         padding: '2px',
                                         marginBottom: '1px',
                                         borderRadius: '2px',
                                         fontSize: '10px',
+                                        cursor: 'grab',
+                                        outline: isCopied ? '2px solid #1976D2' : 'none',
                                       }}>
                                         <div style={{fontWeight: 'bold', color: color.text}}>
                                           {e.subject.length > 6 ? e.subject.slice(0, 4) : e.subject}({e.teacherName[0]})
