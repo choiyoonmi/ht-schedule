@@ -139,6 +139,7 @@ function App() {
 
   const [adminInput, setAdminInput] = useState('');
   const [currentView, setCurrentView] = useState<'dashboard' | 'students'>('dashboard');
+  const [scheduleSearch, setScheduleSearch] = useState('');
 
   const [students, setStudents] = useState<Student[]>(() => {
     try {
@@ -322,10 +323,22 @@ function App() {
         </header>
 
         <div style={styles.dashboardContent}>
-          <h2>📊 전체 시간표</h2>
+          <div style={{display:'flex', alignItems:'center', gap:'12px', flexWrap:'wrap', marginBottom:'8px'}}>
+            <h2 style={{margin:0}}>📊 전체 시간표</h2>
+            <input
+              type="text"
+              value={scheduleSearch}
+              onChange={(e) => setScheduleSearch(e.target.value)}
+              placeholder="🔍 학생 이름 검색 (예: 김건우)"
+              style={{...styles.input, maxWidth:'260px', margin:0}}
+            />
+            {scheduleSearch && (
+              <button onClick={() => setScheduleSearch('')} style={{...styles.tabBtn, padding:'6px 12px'}}>✕ 전체 보기</button>
+            )}
+          </div>
           {students.length > 0 ? (
             <div style={styles.scheduleContainer}>
-              {students.map(student => {
+              {students.filter(s => !scheduleSearch.trim() || s.name.includes(scheduleSearch.trim())).map(student => {
                 const studentSchedule = schedule.filter(e => e.studentName === student.name);
                 const startHour = (student.division === '초등부' || student.division === '유치부') ? 14 : student.division === '중등부' ? 17 : 18;
                 const endHour = (student.division === '초등부' || student.division === '유치부') ? 18 : 21;
