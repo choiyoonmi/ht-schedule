@@ -126,15 +126,21 @@ const generateSchedule = (students: Student[]): ScheduleEntry[] => {
   return schedule;
 };
 
+// 시드 명단 버전. 이 값을 바꿔서 배포하면 모든 브라우저가 새 명단으로 자동 갱신됨.
+const SEED_VERSION = '2026-08-2학기-블록v1';
+
 function App() {
   const [currentView, setCurrentView] = useState<'dashboard' | 'students'>('dashboard');
   const [scheduleSearch, setScheduleSearch] = useState('');
 
   const [students, setStudents] = useState<Student[]>(() => {
     try {
+      const savedVer = localStorage.getItem('happytree_seed_version');
       const saved = localStorage.getItem('happytree_students');
       const parsed = saved ? JSON.parse(saved) : null;
-      return (parsed && parsed.length) ? parsed : (SEED_STUDENTS as unknown as Student[]);
+      // 시드 버전이 최신이고 저장된 학생이 있을 때만 저장본 사용, 아니면 최신 시드로 갱신
+      if (savedVer === SEED_VERSION && parsed && parsed.length) return parsed;
+      return SEED_STUDENTS as unknown as Student[];
     } catch {
       return SEED_STUDENTS as unknown as Student[];
     }
@@ -157,6 +163,10 @@ function App() {
   const [configTeacherId, setConfigTeacherId] = useState<string | null>(null);
   const [configDays, setConfigDays] = useState<DayOfWeek[]>([]);
   const [configHour, setConfigHour] = useState<number>(14);
+
+  useEffect(() => {
+    localStorage.setItem('happytree_seed_version', SEED_VERSION);
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('happytree_students', JSON.stringify(students));
