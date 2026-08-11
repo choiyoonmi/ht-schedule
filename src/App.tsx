@@ -65,7 +65,6 @@ const TEACHER_COLORS: Record<string, {bg: string; border: string; text: string}>
   '숙제반': { bg: '#FFFDE7', border: '#F9A825', text: '#F57F17' },
 };
 
-const ADMIN_PASSWORD = '75356';
 
 function getSubjectsForDivision(division: Division): string[] {
   if (division === '유치부') return ['국어', '초등영어'];
@@ -128,16 +127,6 @@ const generateSchedule = (students: Student[]): ScheduleEntry[] => {
 };
 
 function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
-    try {
-      const saved = localStorage.getItem('happytree_login');
-      return saved ? JSON.parse(saved) : false;
-    } catch {
-      return false;
-    }
-  });
-
-  const [adminInput, setAdminInput] = useState('');
   const [currentView, setCurrentView] = useState<'dashboard' | 'students'>('dashboard');
   const [scheduleSearch, setScheduleSearch] = useState('');
 
@@ -181,23 +170,6 @@ function App() {
   useEffect(() => {
     setSchedule(generateSchedule(students));
   }, [students]);
-
-  const handleLogin = () => {
-    if (adminInput === ADMIN_PASSWORD) {
-      setIsLoggedIn(true);
-      localStorage.setItem('happytree_login', JSON.stringify(true));
-      setAdminInput('');
-    } else {
-      alert('관리자 번호가 틀렸습니다.');
-      setAdminInput('');
-    }
-  };
-
-  const handleLogout = () => {
-    setIsLoggedIn(false);
-    localStorage.setItem('happytree_login', JSON.stringify(false));
-    setCurrentView('dashboard');
-  };
 
   const addStudent = () => {
     if (!newStudentName.trim()) return;
@@ -278,29 +250,6 @@ function App() {
     setSchedule(newSchedule);
   };
 
-  if (!isLoggedIn) {
-    return (
-      <div style={styles.loginContainer}>
-        <div style={styles.loginBox}>
-          <div style={styles.logo}>H</div>
-          <h2 style={styles.loginTitle}>해피트리학원</h2>
-          <p style={styles.loginSubtitle}>관리자 번호를 입력해주세요</p>
-          <input
-            type="password"
-            value={adminInput}
-            onChange={(e) => setAdminInput(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
-            placeholder="관리자 번호"
-            style={styles.loginInput}
-          />
-          <button onClick={handleLogin} style={styles.loginButton}>
-            로그인
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   if (currentView === 'dashboard') {
     return (
       <div style={styles.app}>
@@ -315,9 +264,6 @@ function App() {
             </button>
             <button onClick={() => setCurrentView('students')} style={{...styles.tabBtn}}>
               📋 학생관리
-            </button>
-            <button onClick={handleLogout} style={styles.logoutBtn}>
-              🚪 로그아웃
             </button>
           </div>
         </header>
@@ -414,9 +360,6 @@ function App() {
           </button>
           <button onClick={() => setCurrentView('students')} style={{...styles.tabBtn, ...styles.tabBtnActive}}>
             📋 학생관리
-          </button>
-          <button onClick={handleLogout} style={styles.logoutBtn}>
-            🚪 로그아웃
           </button>
         </div>
       </header>
