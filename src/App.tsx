@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import './App.css';
+import { SEED_STUDENTS } from './seedStudents';
 
-type Division = '초등부' | '중등부' | '고등부';
+type Division = '초등부' | '중등부' | '고등부' | '유치부';
 type DayOfWeek = '월' | '화' | '수' | '목' | '금';
 
 interface Teacher {
@@ -43,6 +44,8 @@ const TEACHERS: Teacher[] = [
   { id: 'elem_eng_1', name: 'Kris', subject: '초등영어' },
   { id: 'elem_eng_2', name: '공', subject: '초등영어' },
   { id: 'elem_eng_3', name: '부원장', subject: '초등영어' },
+  { id: 'elem_eng_4', name: '박은영', subject: '초등영어' },
+  { id: 'elem_eng_5', name: '클리닉', subject: '초등영어' },
   { id: 'mid_eng_1', name: 'Kris', subject: '중등영어' },
   { id: 'mid_eng_2', name: '박은영', subject: '중등영어' },
   { id: 'high_eng_1', name: '박은영', subject: '고등영어' },
@@ -58,12 +61,14 @@ const TEACHER_COLORS: Record<string, {bg: string; border: string; text: string}>
   '공': { bg: '#FCE4EC', border: '#C2185B', text: '#880E4F' },
   '부원장': { bg: '#F3E5F5', border: '#7B1FA2', text: '#4A148C' },
   '박은영': { bg: '#FFEBEE', border: '#D32F2F', text: '#B71C1C' },
+  '클리닉': { bg: '#E0F2F1', border: '#00897B', text: '#004D40' },
   '숙제반': { bg: '#FFFDE7', border: '#F9A825', text: '#F57F17' },
 };
 
 const ADMIN_PASSWORD = '75356';
 
 function getSubjectsForDivision(division: Division): string[] {
+  if (division === '유치부') return ['국어', '초등영어'];
   if (division === '초등부') return ['국어', '초등수학', '초등영어', '숙제반'];
   if (division === '중등부') return ['국어', '중등수학', '중등영어', '숙제반'];
   return ['고등영어', '숙제반'];
@@ -71,12 +76,13 @@ function getSubjectsForDivision(division: Division): string[] {
 
 function getHoursForDivision(division: Division, subject?: string): number[] {
   if (subject === '숙제반') return [14, 15, 16, 17];
-  if (division === '초등부') return [14, 15, 16, 17];
+  if (division === '초등부' || division === '유치부') return [14, 15, 16, 17];
   if (division === '중등부') return [17, 18, 19, 20];
   return [18, 19, 20];
 }
 
 function getGradesForDivision(division: Division): number[] {
+  if (division === '유치부') return [0];
   if (division === '초등부') return [1, 2, 3, 4, 5, 6];
   if (division === '중등부') return [1, 2, 3];
   return [1, 2, 3];
@@ -137,9 +143,10 @@ function App() {
   const [students, setStudents] = useState<Student[]>(() => {
     try {
       const saved = localStorage.getItem('happytree_students');
-      return saved ? JSON.parse(saved) : [];
+      const parsed = saved ? JSON.parse(saved) : null;
+      return (parsed && parsed.length) ? parsed : (SEED_STUDENTS as unknown as Student[]);
     } catch {
-      return [];
+      return SEED_STUDENTS as unknown as Student[];
     }
   });
 
@@ -168,6 +175,11 @@ function App() {
   useEffect(() => {
     localStorage.setItem('happytree_schedule', JSON.stringify(schedule));
   }, [schedule]);
+
+  // 학생 데이터가 바뀌면 전체 시간표를 자동 생성 (시드 학생도 바로 표시)
+  useEffect(() => {
+    setSchedule(generateSchedule(students));
+  }, [students]);
 
   const handleLogin = () => {
     if (adminInput === ADMIN_PASSWORD) {
@@ -315,8 +327,8 @@ function App() {
             <div style={styles.scheduleContainer}>
               {students.map(student => {
                 const studentSchedule = schedule.filter(e => e.studentName === student.name);
-                const startHour = student.division === '초등부' ? 14 : student.division === '중등부' ? 17 : 18;
-                const endHour = student.division === '초등부' ? 18 : 21;
+                const startHour = (student.division === '초등부' || student.division === '유치부') ? 14 : student.division === '중등부' ? 17 : 18;
+                const endHour = (student.division === '초등부' || student.division === '유치부') ? 18 : 21;
 
                 return (
                   <div key={student.id} style={styles.studentScheduleSection}>
@@ -414,13 +426,14 @@ function App() {
               setSelectedDivision(division);
               setSelectedGrade(getGradesForDivision(division)[0]);
             }} style={styles.input}>
+              <option value="유치부">유치부</option>
               <option value="초등부">초등부</option>
               <option value="중등부">중등부</option>
               <option value="고등부">고등부</option>
             </select>
             <select value={selectedGrade} onChange={(e) => setSelectedGrade(Number(e.target.value))} style={styles.input}>
               {getGradesForDivision(selectedDivision).map(g => (
-                <option key={g} value={g}>{g}학년</option>
+                <option key={g} value={g}>{selectedDivision === '유치부' ? '유치부' : g + '학년'}</option>
               ))}
             </select>
             <button onClick={addStudent} style={styles.addBtn}>➕ 추가</button>
@@ -594,8 +607,8 @@ function App() {
             <div style={styles.scheduleContainer}>
               {students.map(student => {
                 const studentSchedule = schedule.filter(e => e.studentName === student.name);
-                const startHour = student.division === '초등부' ? 14 : student.division === '중등부' ? 17 : 18;
-                const endHour = student.division === '초등부' ? 18 : 21;
+                const startHour = (student.division === '초등부' || student.division === '유치부') ? 14 : student.division === '중등부' ? 17 : 18;
+                const endHour = (student.division === '초등부' || student.division === '유치부') ? 18 : 21;
 
                 return (
                   <div key={student.id} style={styles.previewSection}>
