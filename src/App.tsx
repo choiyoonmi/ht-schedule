@@ -325,7 +325,7 @@ function App() {
             )}
           </div>
           <p style={{fontSize:'12px', color:'#888', margin:'0 0 8px'}}>
-            💡 시간표 편집: 과목을 <b>드래그</b>해서 옮기기 · 과목을 <b>클릭</b>해 복사 후 원하는 칸 <b>클릭</b>해 붙여넣기 · 과목 <b>더블클릭</b>으로 삭제
+            💡 시간표 편집: 과목을 <b>드래그</b>해서 옮기기 · 과목 <b>클릭</b>해 복사 후 원하는 칸 <b>클릭</b>해 붙여넣기 · 과목의 <b style={{color:'#d32f2f'}}>×</b> 눌러 삭제
           </p>
           {copied && (
             <div style={{background:'#E3F2FD', border:'1px solid #1976D2', borderRadius:'6px', padding:'8px 12px', marginBottom:'10px', display:'flex', alignItems:'center', gap:'10px', fontSize:'13px'}}>
@@ -392,8 +392,15 @@ function App() {
                                         cursor: 'grab',
                                         outline: isCopied ? '2px solid #1976D2' : 'none',
                                       }}>
-                                        <div style={{fontWeight: 'bold', color: color.text}}>
-                                          {e.subject.length > 6 ? e.subject.slice(0, 4) : e.subject}({e.teacherName[0]})
+                                        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '2px'}}>
+                                          <span style={{fontWeight: 'bold', color: color.text}}>
+                                            {e.subject.length > 6 ? e.subject.slice(0, 4) : e.subject}({e.teacherName[0]})
+                                          </span>
+                                          <span
+                                            onClick={(ev) => { ev.stopPropagation(); deleteClass(student.id, e.subject, day, hour); }}
+                                            title="삭제"
+                                            style={{cursor: 'pointer', color: '#d32f2f', fontWeight: 'bold', fontSize: '12px', lineHeight: 1, padding: '0 2px'}}
+                                          >×</span>
                                         </div>
                                       </div>
                                     );
