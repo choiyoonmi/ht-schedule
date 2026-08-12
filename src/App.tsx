@@ -22,6 +22,7 @@ interface Student {
   name: string;
   division: Division;
   grade: number;
+  vocab?: string; // 단어 진도 (같은 책이라도 학생마다 다를 수 있음, 예: "Day 15", "3권 Unit 5")
   selectedTeachers: {
     [subject: string]: TeacherSelection[];
   };
@@ -192,6 +193,9 @@ function App() {
     setStudents(history[history.length - 1]);
     setHistory(history.slice(0, -1));
     setCopied(null);
+  };
+  const updateVocab = (studentId: string, value: string) => {
+    setStudents(prev => prev.map(s => s.id === studentId ? { ...s, vocab: value } : s));
   };
   const findTeacherId = (student: Student, subject: string, day: DayOfWeek, hour: number): string => {
     const f = (student.selectedTeachers[subject] || []).find(x => x.day === day && x.hour === hour);
@@ -370,6 +374,19 @@ function App() {
                     <div style={styles.scheduleHeader}>
                       <h4>{student.name}</h4>
                       <span style={styles.gradeBadge}>{student.division} {student.grade}학년</span>
+                      {editMode ? (
+                        <input
+                          type="text"
+                          value={student.vocab || ''}
+                          onChange={(ev) => updateVocab(student.id, ev.target.value)}
+                          placeholder="📖 단어 진도 입력 (예: Day 15)"
+                          style={{flex:1, minWidth:'120px', padding:'3px 8px', fontSize:'12px', border:'1px solid #F9A825', borderRadius:'4px'}}
+                        />
+                      ) : (
+                        student.vocab ? (
+                          <span style={{fontSize:'12px', fontWeight:'bold', color:'#F57F17', background:'#FFFDE7', border:'1px solid #F9A825', borderRadius:'4px', padding:'2px 8px'}}>📖 {student.vocab}</span>
+                        ) : null
+                      )}
                     </div>
                     <table style={{...styles.scheduleTable, fontSize: '12px', width: '100%'}}>
                       <thead>
