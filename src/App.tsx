@@ -310,8 +310,8 @@ function App() {
 
   if (currentView === 'dashboard') {
     return (
-      <div style={styles.app}>
-        <header style={styles.header}>
+      <div className="app-root" style={styles.app}>
+        <header className="no-print" style={styles.header}>
           <div style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
             <div style={{...styles.logo, width: '40px', height: '40px', fontSize: '20px', margin: 0}}>H</div>
             <h1 style={styles.headerTitle}>해피트리학원 스케줄</h1>
@@ -326,14 +326,21 @@ function App() {
           </div>
         </header>
 
-        <div style={styles.dashboardContent}>
+        <div className="dashboard-scroll" style={styles.dashboardContent}>
           <div style={{display:'flex', alignItems:'center', gap:'12px', flexWrap:'wrap', marginBottom:'8px'}}>
             <h2 style={{margin:0}}>📊 전체 시간표</h2>
             <button
+              className="no-print"
               onClick={() => { setEditMode(v => !v); setCopied(null); }}
               style={{padding:'7px 16px', borderRadius:'6px', border:'none', cursor:'pointer', fontSize:'13px', fontWeight:'bold', color:'#fff', background: editMode ? '#2e7d32' : '#d32f2f'}}
             >{editMode ? '✅ 수정 완료' : '✏️ 수정하기'}</button>
+            <button
+              className="no-print"
+              onClick={() => { setEditMode(false); setCopied(null); setTimeout(() => window.print(), 100); }}
+              style={{padding:'7px 16px', borderRadius:'6px', border:'none', cursor:'pointer', fontSize:'13px', fontWeight:'bold', color:'#fff', background:'#1976D2'}}
+            >🖨️ 인쇄</button>
             <input
+              className="no-print"
               type="text"
               value={scheduleSearch}
               onChange={(e) => setScheduleSearch(e.target.value)}
@@ -341,7 +348,7 @@ function App() {
               style={{...styles.input, maxWidth:'260px', margin:0}}
             />
             {scheduleSearch && (
-              <button onClick={() => setScheduleSearch('')} style={{...styles.tabBtn, padding:'6px 12px'}}>✕ 전체 보기</button>
+              <button className="no-print" onClick={() => setScheduleSearch('')} style={{...styles.tabBtn, padding:'6px 12px', color:'#333', border:'1px solid #ccc'}}>✕ 전체 보기</button>
             )}
           </div>
           {editMode && (
@@ -370,7 +377,7 @@ function App() {
                 const endHour = (student.division === '초등부' || student.division === '유치부') ? 18 : 21;
 
                 return (
-                  <div key={student.id} style={styles.studentScheduleSection}>
+                  <div key={student.id} className="print-student" style={styles.studentScheduleSection}>
                     <div style={styles.scheduleHeader}>
                       <h4>{student.name}</h4>
                       <span style={styles.gradeBadge}>{student.division} {student.grade}학년</span>

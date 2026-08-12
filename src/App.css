@@ -19,3 +19,24 @@ code {
   border-radius: 4px;
   font-family: 'Courier New', monospace;
 }
+
+/* 인쇄(출력) 전용 스타일 */
+@media print {
+  @page { margin: 10mm; }
+  .no-print { display: none !important; }
+  body { background: #fff !important; }
+  /* 스크롤/높이 제한 해제해서 전체가 출력되도록 */
+  html, body, #root { height: auto !important; overflow: visible !important; }
+  /* 학생 카드가 페이지 경계에서 잘리지 않게 */
+  .print-student {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    box-shadow: none !important;
+    border: 1px solid #ccc !important;
+  }
+  /* 레이아웃 높이/스크롤 제한 해제 (전체가 출력되도록) */
+  .app-root { height: auto !important; display: block !important; }
+  .dashboard-scroll { overflow: visible !important; height: auto !important; padding: 6mm 0 0 !important; }
+  /* 인쇄 시 그림자 등 불필요한 효과 최소화 */
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
