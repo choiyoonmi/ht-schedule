@@ -167,6 +167,7 @@ function App() {
   const [copied, setCopied] = useState<{studentId: string; subject: string; teacherId: string; teacherName: string; day: DayOfWeek; hour: number} | null>(null);
   const dragRef = useRef<{studentId: string; subject: string; day: DayOfWeek; hour: number} | null>(null);
   const [history, setHistory] = useState<Student[][]>([]); // 되돌리기용 편집 이력
+  const [editMode, setEditMode] = useState<boolean>(false); // 편집 모드(수정하기 버튼으로 켜야 편집 가능)
 
   useEffect(() => {
     localStorage.setItem('happytree_seed_version', SEED_VERSION);
@@ -324,6 +325,10 @@ function App() {
         <div style={styles.dashboardContent}>
           <div style={{display:'flex', alignItems:'center', gap:'12px', flexWrap:'wrap', marginBottom:'8px'}}>
             <h2 style={{margin:0}}>📊 전체 시간표</h2>
+            <button
+              onClick={() => { setEditMode(v => !v); setCopied(null); }}
+              style={{padding:'7px 16px', borderRadius:'6px', border:'none', cursor:'pointer', fontSize:'13px', fontWeight:'bold', color:'#fff', background: editMode ? '#2e7d32' : '#d32f2f'}}
+            >{editMode ? '✅ 수정 완료' : '✏️ 수정하기'}</button>
             <input
               type="text"
               value={scheduleSearch}
@@ -335,6 +340,7 @@ function App() {
               <button onClick={() => setScheduleSearch('')} style={{...styles.tabBtn, padding:'6px 12px'}}>✕ 전체 보기</button>
             )}
           </div>
+          {editMode && (
           <div style={{display:'flex', alignItems:'center', gap:'10px', flexWrap:'wrap', margin:'0 0 8px'}}>
             <button
               onClick={undo}
@@ -342,10 +348,11 @@ function App() {
               style={{padding:'5px 12px', borderRadius:'4px', border:'1px solid #1976D2', cursor: history.length ? 'pointer' : 'not-allowed', fontSize:'12px', fontWeight:'bold', background: history.length ? '#1976D2' : '#ccc', color:'#fff'}}
             >↩️ 되돌리기{history.length ? ` (${history.length})` : ''}</button>
             <span style={{fontSize:'12px', color:'#888'}}>
-              💡 시간표 편집: 과목을 <b>드래그</b>해서 옮기기 · 과목 <b>클릭</b>해 복사 후 원하는 칸 <b>클릭</b>해 붙여넣기 · 과목의 <b style={{color:'#d32f2f'}}>×</b> 눌러 삭제
+              💡 과목을 <b>드래그</b>해서 옮기기 · 과목 <b>클릭</b>해 복사 후 원하는 칸 <b>클릭</b>해 붙여넣기 · 과목의 <b style={{color:'#d32f2f'}}>×</b> 눌러 삭제
             </span>
           </div>
-          {copied && (
+          )}
+          {editMode && copied && (
             <div style={{background:'#E3F2FD', border:'1px solid #1976D2', borderRadius:'6px', padding:'8px 12px', marginBottom:'10px', display:'flex', alignItems:'center', gap:'10px', fontSize:'13px'}}>
               📋 <b>{copied.subject}({copied.teacherName})</b> 복사됨 — 붙여넣을 칸을 클릭하세요 <span style={{color:'#888'}}>(다른 과목을 클릭하면 그걸로 바뀜)</span>
               <button onClick={() => setCopied(null)} style={{padding:'4px 12px', marginLeft:'auto', background:'#1976D2', color:'#fff', border:'none', borderRadius:'4px', cursor:'pointer', fontSize:'12px', fontWeight:'bold'}}>취소</button>
@@ -379,27 +386,27 @@ function App() {
                               const entries = studentSchedule.filter(e => e.day === day && e.hour === hour);
                               return (
                                 <td key={day}
-                                  onDragOver={(ev) => ev.preventDefault()}
+                                  onDragOver={(ev) => { if (editMode) ev.preventDefault(); }}
                                   onDrop={() => {
+                                    if (!editMode) return;
                                     const d = dragRef.current;
                                     if (d && d.studentId === student.id) {
                                       moveClass(d.studentId, d.subject, d.day, d.hour, day, hour);
                                     }
                                     dragRef.current = null;
                                   }}
-                                  onClick={() => { if (copied) pasteClass(student.id, copied.subject, copied.teacherId, day, hour); }}
-                                  style={{...styles.scheduleCell, padding: '4px', fontSize: '10px', cursor: copied ? 'copy' : undefined, minWidth: '36px', height: '24px'}}>
+                                  onClick={() => { if (editMode && copied) pasteClass(student.id, copied.subject, copied.teacherId, day, hour); }}
+                                  style={{...styles.scheduleCell, padding: '4px', fontSize: '10px', cursor: (editMode && copied) ? 'copy' : undefined, minWidth: '36px', height: '24px'}}>
                                   {entries.map((e, idx) => {
                                     const color = TEACHER_COLORS[e.teacherName] || { bg: '#F5F5F5', border: '#999', text: '#333' };
                                     const isCopied = !!copied && copied.studentId === student.id && copied.subject === e.subject && copied.day === day && copied.hour === hour;
                                     return (
                                       <div key={idx}
-                                        draggable
-                                        onDragStart={() => { dragRef.current = {studentId: student.id, subject: e.subject, day, hour}; }}
+                                        draggable={editMode}
+                                        onDragStart={() => { if (editMode) dragRef.current = {studentId: student.id, subject: e.subject, day, hour}; }}
                                         onDragEnd={() => { dragRef.current = null; }}
-                                        onClick={(ev) => { ev.stopPropagation(); setCopied({studentId: student.id, subject: e.subject, teacherId: findTeacherId(student, e.subject, day, hour), teacherName: e.teacherName, day, hour}); }}
-                                        onDoubleClick={(ev) => { ev.stopPropagation(); deleteClass(student.id, e.subject, day, hour); }}
-                                        title="드래그=이동 · 클릭=복사 · 더블클릭=삭제"
+                                        onClick={(ev) => { if (!editMode) return; ev.stopPropagation(); setCopied({studentId: student.id, subject: e.subject, teacherId: findTeacherId(student, e.subject, day, hour), teacherName: e.teacherName, day, hour}); }}
+                                        title={editMode ? '드래그=이동 · 클릭=복사 · ×=삭제' : undefined}
                                         style={{
                                         backgroundColor: color.bg,
                                         borderLeft: `2px solid ${color.border}`,
@@ -407,18 +414,20 @@ function App() {
                                         marginBottom: '1px',
                                         borderRadius: '2px',
                                         fontSize: '10px',
-                                        cursor: 'grab',
+                                        cursor: editMode ? 'grab' : 'default',
                                         outline: isCopied ? '2px solid #1976D2' : 'none',
                                       }}>
                                         <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '2px'}}>
                                           <span style={{fontWeight: 'bold', color: color.text}}>
                                             {e.subject.length > 6 ? e.subject.slice(0, 4) : e.subject}({e.teacherName[0]})
                                           </span>
+                                          {editMode && (
                                           <span
                                             onClick={(ev) => { ev.stopPropagation(); deleteClass(student.id, e.subject, day, hour); }}
                                             title="삭제"
                                             style={{cursor: 'pointer', color: '#d32f2f', fontWeight: 'bold', fontSize: '12px', lineHeight: 1, padding: '0 2px'}}
                                           >×</span>
+                                          )}
                                         </div>
                                       </div>
                                     );
