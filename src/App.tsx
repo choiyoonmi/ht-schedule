@@ -159,6 +159,7 @@ function App() {
   const [newStudentName, setNewStudentName] = useState('');
   const [selectedDivision, setSelectedDivision] = useState<Division>('초등부');
   const [selectedGrade, setSelectedGrade] = useState<number>(1);
+  const [copyFromId, setCopyFromId] = useState<string>(''); // 새 학생 만들 때 복사할 기존 학생
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
   const [configTeacherId, setConfigTeacherId] = useState<string | null>(null);
@@ -229,17 +230,40 @@ function App() {
     }));
   };
 
+  const cloneTeachers = (st: Student) => {
+    const out: { [subject: string]: TeacherSelection[] } = {};
+    for (const k in st.selectedTeachers) out[k] = st.selectedTeachers[k].map(x => ({ ...x }));
+    return out;
+  };
+
   const addStudent = () => {
     if (!newStudentName.trim()) return;
+    const src = copyFromId ? students.find(s => s.id === copyFromId) : null;
     const newStudent: Student = {
       id: `student_${Date.now()}`,
       name: newStudentName,
-      division: selectedDivision,
-      grade: selectedGrade,
-      selectedTeachers: {},
+      division: src ? src.division : selectedDivision, // 복사 시 원본 학년/부 따라감
+      grade: src ? src.grade : selectedGrade,
+      vocab: src ? src.vocab : undefined,
+      selectedTeachers: src ? cloneTeachers(src) : {},
     };
     setStudents([...students, newStudent]);
     setNewStudentName('');
+    setCopyFromId('');
+    setEditingStudent(newStudent);
+  };
+
+  const duplicateStudent = (src: Student) => {
+    const dup: Student = {
+      id: `student_${Date.now()}`,
+      name: src.name + ' 사본',
+      division: src.division,
+      grade: src.grade,
+      vocab: src.vocab,
+      selectedTeachers: cloneTeachers(src),
+    };
+    setStudents([...students, dup]);
+    setEditingStudent(dup);
   };
 
   const deleteStudent = (id: string) => {
@@ -506,22 +530,29 @@ function App() {
               style={styles.input}
               onKeyPress={(e) => e.key === 'Enter' && addStudent()}
             />
-            <select value={selectedDivision} onChange={(e) => {
+            <select value={copyFromId} onChange={(e) => setCopyFromId(e.target.value)} style={{...styles.input, borderColor: copyFromId ? '#1976D2' : undefined}}>
+              <option value="">📋 시간표 복사 안 함 (빈 시간표)</option>
+              {students.map(s => (
+                <option key={s.id} value={s.id}>📋 {s.name} ({s.division} {s.grade}학년) 시간표 복사</option>
+              ))}
+            </select>
+            <select value={selectedDivision} disabled={!!copyFromId} onChange={(e) => {
               const division = e.target.value as Division;
               setSelectedDivision(division);
               setSelectedGrade(getGradesForDivision(division)[0]);
-            }} style={styles.input}>
+            }} style={{...styles.input, opacity: copyFromId ? 0.5 : 1}}>
               <option value="유치부">유치부</option>
               <option value="초등부">초등부</option>
               <option value="중등부">중등부</option>
               <option value="고등부">고등부</option>
             </select>
-            <select value={selectedGrade} onChange={(e) => setSelectedGrade(Number(e.target.value))} style={styles.input}>
+            <select value={selectedGrade} disabled={!!copyFromId} onChange={(e) => setSelectedGrade(Number(e.target.value))} style={{...styles.input, opacity: copyFromId ? 0.5 : 1}}>
               {getGradesForDivision(selectedDivision).map(g => (
                 <option key={g} value={g}>{selectedDivision === '유치부' ? '유치부' : g + '학년'}</option>
               ))}
             </select>
-            <button onClick={addStudent} style={styles.addBtn}>➕ 추가</button>
+            {copyFromId && <p style={{fontSize:'11px', color:'#1976D2', margin:'-4px 0 4px'}}>복사 선택 시 학년·부는 원본을 따라갑니다</p>}
+            <button onClick={addStudent} style={styles.addBtn}>{copyFromId ? '📋 복사해서 추가' : '➕ 추가'}</button>
           </div>
 
           <div style={styles.studentListSection}>
@@ -541,6 +572,13 @@ function App() {
                     >
                       {s.name} <span style={styles.gradeBadgeSmall}>{s.division} {s.grade}학년</span>
                     </div>
+                    <button
+                      onClick={() => duplicateStudent(s)}
+                      style={{...styles.deleteBtnSmall, marginRight:'4px'}}
+                      title="이 학생 시간표 복제"
+                    >
+                      📋
+                    </button>
                     <button
                       onClick={() => deleteStudent(s.id)}
                       style={styles.deleteBtnSmall}
