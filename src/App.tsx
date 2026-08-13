@@ -128,7 +128,7 @@ const generateSchedule = (students: Student[]): ScheduleEntry[] => {
 };
 
 // 시드 명단 버전. 이 값을 바꿔서 배포하면 모든 브라우저가 새 명단으로 자동 갱신됨.
-const SEED_VERSION = '2026-08-2학기-블록v3';
+const SEED_VERSION = '2026-08-2학기-블록v4';
 
 function App() {
   const [currentView, setCurrentView] = useState<'dashboard' | 'students'>('dashboard');

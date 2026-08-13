@@ -2063,11 +2063,6 @@ export const SEED_STUDENTS = [
         },
         {
           "teacherId": "elem_math_2",
-          "day": "목",
-          "hour": 17
-        },
-        {
-          "teacherId": "elem_math_2",
           "day": "금",
           "hour": 17
         }
