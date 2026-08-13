@@ -127,6 +127,56 @@ const generateSchedule = (students: Student[]): ScheduleEntry[] => {
   return schedule;
 };
 
+// 시간표 검증: 교사 동시간 중복 / 학생 시간 겹침 / 공백(중간 빈시간)
+function validateSchedule(students: Student[]): string[] {
+  const warnings: string[] = [];
+  const teacherName = (id: string) => (TEACHERS.find(t => t.id === id) || { name: id }).name;
+  // 1) 교사가 같은 시간에 서로 다른 반을 맡음
+  const slot: Record<string, Set<string>> = {};
+  for (const st of students) {
+    for (const subj in st.selectedTeachers) {
+      for (const e of st.selectedTeachers[subj]) {
+        const tid = e.teacherId;
+        if (!tid || tid === 'elem_eng_5') continue; // 숙제·클리닉 제외
+        const g = (st.name === '홍리아' && subj === '초등영어') ? 5 : st.grade; // 합반 보정
+        const key = `${e.day}|${e.hour}|${tid}`;
+        (slot[key] = slot[key] || new Set()).add(`${st.division}${g}-${subj}`);
+      }
+    }
+  }
+  for (const key in slot) {
+    if (slot[key].size > 1) {
+      const [day, hour, tid] = key.split('|');
+      warnings.push(`👨‍🏫 교사 중복: ${teacherName(tid)} — ${day} ${Number(hour) - 12}시에 ${slot[key].size}개 반 겹침`);
+    }
+  }
+  // 2) 한 학생이 같은 시간에 두 수업
+  for (const st of students) {
+    const seen: Record<string, string> = {};
+    for (const subj in st.selectedTeachers) {
+      for (const e of st.selectedTeachers[subj]) {
+        const k = `${e.day}|${e.hour}`;
+        if (seen[k]) warnings.push(`🧑‍🎓 ${st.name}: ${e.day} ${e.hour - 12}시 수업 겹침 (${seen[k]}·${subj})`);
+        seen[k] = subj;
+      }
+    }
+  }
+  // 3) 공백(수업 사이 빈 시간) — 단과·부분수강생에게 특히 문제
+  for (const st of students) {
+    const byDay: Record<string, number[]> = {};
+    for (const subj in st.selectedTeachers)
+      for (const e of st.selectedTeachers[subj])
+        (byDay[e.day] = byDay[e.day] || []).push(e.hour);
+    for (const day in byDay) {
+      const hs = byDay[day].sort((a, b) => a - b);
+      for (let h = hs[0]; h < hs[hs.length - 1]; h++) {
+        if (!hs.includes(h)) { warnings.push(`⏳ ${st.name}: ${day} ${h - 12}시 공백(빈 시간)`); break; }
+      }
+    }
+  }
+  return warnings;
+}
+
 // 시드 명단 버전. 이 값을 바꿔서 배포하면 모든 브라우저가 새 명단으로 자동 갱신됨.
 const SEED_VERSION = '2026-08-2학기-블록v5';
 
@@ -332,6 +382,8 @@ function App() {
     setSchedule(newSchedule);
   };
 
+  const scheduleWarnings = validateSchedule(students);
+
   if (currentView === 'dashboard') {
     return (
       <div className="app-root" style={styles.app}>
@@ -374,7 +426,18 @@ function App() {
             {scheduleSearch && (
               <button className="no-print" onClick={() => setScheduleSearch('')} style={{...styles.tabBtn, padding:'6px 12px', color:'#333', border:'1px solid #ccc'}}>✕ 전체 보기</button>
             )}
+            {scheduleWarnings.length === 0
+              ? <span className="no-print" style={{fontSize:'12px', color:'#2e7d32', fontWeight:'bold'}}>✅ 이상 없음</span>
+              : <span className="no-print" style={{fontSize:'13px', color:'#fff', fontWeight:'bold', background:'#d32f2f', borderRadius:'12px', padding:'3px 12px'}}>⚠️ 경고 {scheduleWarnings.length}건</span>}
           </div>
+          {scheduleWarnings.length > 0 && (
+            <div className="no-print" style={{background:'#FFEBEE', border:'2px solid #d32f2f', borderRadius:'8px', padding:'10px 14px', marginBottom:'10px', maxHeight:'170px', overflowY:'auto'}}>
+              <div style={{fontWeight:'bold', color:'#d32f2f', marginBottom:'6px'}}>⚠️ 시간표 경고 {scheduleWarnings.length}건 — 확인해 주세요</div>
+              {scheduleWarnings.map((w, i) => (
+                <div key={i} style={{fontSize:'12px', color:'#b71c1c', lineHeight:1.6}}>• {w}</div>
+              ))}
+            </div>
+          )}
           {editMode && (
           <div style={{display:'flex', alignItems:'center', gap:'10px', flexWrap:'wrap', margin:'0 0 8px'}}>
             <button
