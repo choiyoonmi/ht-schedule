@@ -255,10 +255,17 @@ function App() {
   const moveClass = (studentId: string, subject: string, srcDay: DayOfWeek, srcHour: number, dstDay: DayOfWeek, dstHour: number) => {
     if (srcDay === dstDay && srcHour === dstHour) return;
     pushHistory();
+    // 드래그한 수업의 선생님 = 같은 반 식별 기준(같은 과목·시간·선생님이면 같은 반)
+    const dragger = students.find(s => s.id === studentId);
+    const dragEntry = (dragger?.selectedTeachers[subject] || []).find(x => x.day === srcDay && x.hour === srcHour);
+    const classTeacher = dragEntry ? dragEntry.teacherId : null;
     setStudents(prev => prev.map(s => {
-      if (s.id !== studentId) return s;
-      const cur = s.selectedTeachers[subject] || [];
-      const next = cur.map(x => (x.day === srcDay && x.hour === srcHour) ? { ...x, day: dstDay, hour: dstHour } : x);
+      const cur = s.selectedTeachers[subject];
+      if (!cur) return s;
+      // 이 학생이 같은 반(같은 과목·시간·선생님)에 속하면 함께 이동
+      const inClass = cur.some(x => x.day === srcDay && x.hour === srcHour && x.teacherId === classTeacher);
+      if (!inClass) return s;
+      const next = cur.map(x => (x.day === srcDay && x.hour === srcHour && x.teacherId === classTeacher) ? { ...x, day: dstDay, hour: dstHour } : x);
       return { ...s, selectedTeachers: { ...s.selectedTeachers, [subject]: next } };
     }));
   };
