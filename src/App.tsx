@@ -410,7 +410,7 @@ function App() {
         </header>
 
         <div className="dashboard-scroll" style={styles.dashboardContent}>
-          <div style={{display:'flex', alignItems:'center', gap:'12px', flexWrap:'wrap', marginBottom:'8px'}}>
+          <div className="sticky-bar" style={{position:'sticky', top:0, zIndex:30, background:'#f5f5f5', display:'flex', alignItems:'center', gap:'12px', flexWrap:'wrap', margin:'0 -20px 8px', padding:'14px 20px', borderBottom:'1px solid #ddd', boxShadow:'0 2px 6px rgba(0,0,0,0.08)'}}>
             <h2 style={{margin:0}}>📊 전체 시간표</h2>
             <button
               className="no-print"
@@ -957,7 +957,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   dashboardContent: {
     flex: 1,
-    padding: '20px',
+    padding: '0 20px 20px',
     overflow: 'auto',
   },
   scheduleContainer: {

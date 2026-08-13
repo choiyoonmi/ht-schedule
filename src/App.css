@@ -37,6 +37,7 @@ code {
   /* 레이아웃 높이/스크롤 제한 해제 (전체가 출력되도록) */
   .app-root { height: auto !important; display: block !important; }
   .dashboard-scroll { overflow: visible !important; height: auto !important; padding: 6mm 0 0 !important; }
+  .sticky-bar { position: static !important; box-shadow: none !important; border: none !important; margin: 0 0 6px !important; padding: 0 !important; background: transparent !important; }
   /* 인쇄 시 그림자 등 불필요한 효과 최소화 */
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
