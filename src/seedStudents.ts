@@ -32,7 +32,7 @@ export const SEED_STUDENTS = [
       ],
       "초등수학": [
         {
-          "teacherId": "elem_math_1",
+          "teacherId": "elem_math_2",
           "day": "월",
           "hour": 16
         },
@@ -42,7 +42,7 @@ export const SEED_STUDENTS = [
           "hour": 16
         },
         {
-          "teacherId": "elem_math_1",
+          "teacherId": "elem_math_2",
           "day": "목",
           "hour": 16
         },
@@ -96,7 +96,7 @@ export const SEED_STUDENTS = [
       ],
       "초등수학": [
         {
-          "teacherId": "elem_math_1",
+          "teacherId": "elem_math_2",
           "day": "월",
           "hour": 16
         },
@@ -106,7 +106,7 @@ export const SEED_STUDENTS = [
           "hour": 16
         },
         {
-          "teacherId": "elem_math_1",
+          "teacherId": "elem_math_2",
           "day": "목",
           "hour": 16
         },
@@ -160,7 +160,7 @@ export const SEED_STUDENTS = [
       ],
       "초등수학": [
         {
-          "teacherId": "elem_math_1",
+          "teacherId": "elem_math_2",
           "day": "월",
           "hour": 16
         },
@@ -170,7 +170,7 @@ export const SEED_STUDENTS = [
           "hour": 16
         },
         {
-          "teacherId": "elem_math_1",
+          "teacherId": "elem_math_2",
           "day": "목",
           "hour": 16
         },
@@ -224,7 +224,7 @@ export const SEED_STUDENTS = [
       ],
       "초등수학": [
         {
-          "teacherId": "elem_math_1",
+          "teacherId": "elem_math_2",
           "day": "월",
           "hour": 16
         },
@@ -234,7 +234,7 @@ export const SEED_STUDENTS = [
           "hour": 16
         },
         {
-          "teacherId": "elem_math_1",
+          "teacherId": "elem_math_2",
           "day": "목",
           "hour": 16
         },
@@ -288,7 +288,7 @@ export const SEED_STUDENTS = [
       ],
       "초등수학": [
         {
-          "teacherId": "elem_math_1",
+          "teacherId": "elem_math_2",
           "day": "월",
           "hour": 16
         },
@@ -298,7 +298,7 @@ export const SEED_STUDENTS = [
           "hour": 16
         },
         {
-          "teacherId": "elem_math_1",
+          "teacherId": "elem_math_2",
           "day": "목",
           "hour": 16
         },
@@ -352,7 +352,7 @@ export const SEED_STUDENTS = [
       ],
       "초등수학": [
         {
-          "teacherId": "elem_math_1",
+          "teacherId": "elem_math_2",
           "day": "월",
           "hour": 15
         },
@@ -367,7 +367,7 @@ export const SEED_STUDENTS = [
           "hour": 15
         },
         {
-          "teacherId": "elem_math_1",
+          "teacherId": "elem_math_2",
           "day": "금",
           "hour": 15
         }
@@ -416,7 +416,7 @@ export const SEED_STUDENTS = [
       ],
       "초등수학": [
         {
-          "teacherId": "elem_math_1",
+          "teacherId": "elem_math_2",
           "day": "월",
           "hour": 15
         },
@@ -431,7 +431,7 @@ export const SEED_STUDENTS = [
           "hour": 15
         },
         {
-          "teacherId": "elem_math_1",
+          "teacherId": "elem_math_2",
           "day": "금",
           "hour": 15
         }
@@ -480,7 +480,7 @@ export const SEED_STUDENTS = [
       ],
       "초등수학": [
         {
-          "teacherId": "elem_math_1",
+          "teacherId": "elem_math_2",
           "day": "월",
           "hour": 15
         },
@@ -495,7 +495,7 @@ export const SEED_STUDENTS = [
           "hour": 15
         },
         {
-          "teacherId": "elem_math_1",
+          "teacherId": "elem_math_2",
           "day": "금",
           "hour": 15
         }
@@ -544,7 +544,7 @@ export const SEED_STUDENTS = [
       ],
       "초등수학": [
         {
-          "teacherId": "elem_math_1",
+          "teacherId": "elem_math_2",
           "day": "월",
           "hour": 15
         },
@@ -559,7 +559,7 @@ export const SEED_STUDENTS = [
           "hour": 15
         },
         {
-          "teacherId": "elem_math_1",
+          "teacherId": "elem_math_2",
           "day": "금",
           "hour": 15
         }
@@ -608,7 +608,7 @@ export const SEED_STUDENTS = [
       ],
       "초등수학": [
         {
-          "teacherId": "elem_math_1",
+          "teacherId": "elem_math_2",
           "day": "월",
           "hour": 15
         },
@@ -623,7 +623,7 @@ export const SEED_STUDENTS = [
           "hour": 15
         },
         {
-          "teacherId": "elem_math_1",
+          "teacherId": "elem_math_2",
           "day": "금",
           "hour": 15
         }
@@ -650,7 +650,7 @@ export const SEED_STUDENTS = [
     "selectedTeachers": {
       "초등수학": [
         {
-          "teacherId": "elem_math_2",
+          "teacherId": "elem_math_1",
           "day": "월",
           "hour": 14
         },
@@ -660,17 +660,17 @@ export const SEED_STUDENTS = [
           "hour": 14
         },
         {
-          "teacherId": "elem_math_1",
+          "teacherId": "elem_math_2",
           "day": "금",
           "hour": 14
         },
         {
-          "teacherId": "elem_math_1",
+          "teacherId": "elem_math_2",
           "day": "화",
           "hour": 16
         },
         {
-          "teacherId": "elem_math_2",
+          "teacherId": "elem_math_1",
           "day": "목",
           "hour": 16
         }
@@ -736,7 +736,7 @@ export const SEED_STUDENTS = [
     "selectedTeachers": {
       "초등수학": [
         {
-          "teacherId": "elem_math_2",
+          "teacherId": "elem_math_1",
           "day": "월",
           "hour": 14
         },
@@ -746,17 +746,17 @@ export const SEED_STUDENTS = [
           "hour": 14
         },
         {
-          "teacherId": "elem_math_1",
+          "teacherId": "elem_math_2",
           "day": "금",
           "hour": 14
         },
         {
-          "teacherId": "elem_math_1",
+          "teacherId": "elem_math_2",
           "day": "화",
           "hour": 16
         },
         {
-          "teacherId": "elem_math_2",
+          "teacherId": "elem_math_1",
           "day": "목",
           "hour": 16
         }
@@ -857,7 +857,7 @@ export const SEED_STUDENTS = [
     "selectedTeachers": {
       "초등수학": [
         {
-          "teacherId": "elem_math_2",
+          "teacherId": "elem_math_1",
           "day": "월",
           "hour": 14
         },
@@ -867,17 +867,17 @@ export const SEED_STUDENTS = [
           "hour": 14
         },
         {
-          "teacherId": "elem_math_1",
+          "teacherId": "elem_math_2",
           "day": "금",
           "hour": 14
         },
         {
-          "teacherId": "elem_math_1",
+          "teacherId": "elem_math_2",
           "day": "화",
           "hour": 16
         },
         {
-          "teacherId": "elem_math_2",
+          "teacherId": "elem_math_1",
           "day": "목",
           "hour": 16
         }
@@ -943,7 +943,7 @@ export const SEED_STUDENTS = [
     "selectedTeachers": {
       "초등수학": [
         {
-          "teacherId": "elem_math_2",
+          "teacherId": "elem_math_1",
           "day": "월",
           "hour": 14
         },
@@ -953,17 +953,17 @@ export const SEED_STUDENTS = [
           "hour": 14
         },
         {
-          "teacherId": "elem_math_1",
+          "teacherId": "elem_math_2",
           "day": "금",
           "hour": 14
         },
         {
-          "teacherId": "elem_math_1",
+          "teacherId": "elem_math_2",
           "day": "화",
           "hour": 16
         },
         {
-          "teacherId": "elem_math_2",
+          "teacherId": "elem_math_1",
           "day": "목",
           "hour": 16
         }
@@ -1029,7 +1029,7 @@ export const SEED_STUDENTS = [
     "selectedTeachers": {
       "초등수학": [
         {
-          "teacherId": "elem_math_2",
+          "teacherId": "elem_math_1",
           "day": "월",
           "hour": 14
         },
@@ -1039,17 +1039,17 @@ export const SEED_STUDENTS = [
           "hour": 14
         },
         {
-          "teacherId": "elem_math_1",
+          "teacherId": "elem_math_2",
           "day": "금",
           "hour": 14
         },
         {
-          "teacherId": "elem_math_1",
+          "teacherId": "elem_math_2",
           "day": "화",
           "hour": 16
         },
         {
-          "teacherId": "elem_math_2",
+          "teacherId": "elem_math_1",
           "day": "목",
           "hour": 16
         }
@@ -1115,7 +1115,7 @@ export const SEED_STUDENTS = [
     "selectedTeachers": {
       "초등수학": [
         {
-          "teacherId": "elem_math_2",
+          "teacherId": "elem_math_1",
           "day": "월",
           "hour": 14
         },
@@ -1125,17 +1125,17 @@ export const SEED_STUDENTS = [
           "hour": 14
         },
         {
-          "teacherId": "elem_math_1",
+          "teacherId": "elem_math_2",
           "day": "금",
           "hour": 14
         },
         {
-          "teacherId": "elem_math_1",
+          "teacherId": "elem_math_2",
           "day": "화",
           "hour": 16
         },
         {
-          "teacherId": "elem_math_2",
+          "teacherId": "elem_math_1",
           "day": "목",
           "hour": 16
         }
@@ -1201,7 +1201,7 @@ export const SEED_STUDENTS = [
     "selectedTeachers": {
       "초등수학": [
         {
-          "teacherId": "elem_math_2",
+          "teacherId": "elem_math_1",
           "day": "월",
           "hour": 14
         },
@@ -1211,17 +1211,17 @@ export const SEED_STUDENTS = [
           "hour": 14
         },
         {
-          "teacherId": "elem_math_1",
+          "teacherId": "elem_math_2",
           "day": "금",
           "hour": 14
         },
         {
-          "teacherId": "elem_math_1",
+          "teacherId": "elem_math_2",
           "day": "화",
           "hour": 16
         },
         {
-          "teacherId": "elem_math_2",
+          "teacherId": "elem_math_1",
           "day": "목",
           "hour": 16
         }
@@ -1287,7 +1287,7 @@ export const SEED_STUDENTS = [
     "selectedTeachers": {
       "초등수학": [
         {
-          "teacherId": "elem_math_2",
+          "teacherId": "elem_math_1",
           "day": "월",
           "hour": 14
         },
@@ -1297,17 +1297,17 @@ export const SEED_STUDENTS = [
           "hour": 14
         },
         {
-          "teacherId": "elem_math_1",
+          "teacherId": "elem_math_2",
           "day": "금",
           "hour": 14
         },
         {
-          "teacherId": "elem_math_1",
+          "teacherId": "elem_math_2",
           "day": "화",
           "hour": 16
         },
         {
-          "teacherId": "elem_math_2",
+          "teacherId": "elem_math_1",
           "day": "목",
           "hour": 16
         }
@@ -1385,12 +1385,12 @@ export const SEED_STUDENTS = [
       ],
       "초등수학": [
         {
-          "teacherId": "elem_math_2",
+          "teacherId": "elem_math_1",
           "day": "월",
           "hour": 15
         },
         {
-          "teacherId": "elem_math_1",
+          "teacherId": "elem_math_2",
           "day": "화",
           "hour": 15
         },
@@ -1405,7 +1405,7 @@ export const SEED_STUDENTS = [
           "hour": 15
         },
         {
-          "teacherId": "elem_math_2",
+          "teacherId": "elem_math_1",
           "day": "금",
           "hour": 15
         }
@@ -1471,12 +1471,12 @@ export const SEED_STUDENTS = [
       ],
       "초등수학": [
         {
-          "teacherId": "elem_math_2",
+          "teacherId": "elem_math_1",
           "day": "월",
           "hour": 15
         },
         {
-          "teacherId": "elem_math_1",
+          "teacherId": "elem_math_2",
           "day": "화",
           "hour": 15
         },
@@ -1491,7 +1491,7 @@ export const SEED_STUDENTS = [
           "hour": 15
         },
         {
-          "teacherId": "elem_math_2",
+          "teacherId": "elem_math_1",
           "day": "금",
           "hour": 15
         }
@@ -1557,12 +1557,12 @@ export const SEED_STUDENTS = [
       ],
       "초등수학": [
         {
-          "teacherId": "elem_math_2",
+          "teacherId": "elem_math_1",
           "day": "월",
           "hour": 15
         },
         {
-          "teacherId": "elem_math_1",
+          "teacherId": "elem_math_2",
           "day": "화",
           "hour": 15
         },
@@ -1577,7 +1577,7 @@ export const SEED_STUDENTS = [
           "hour": 15
         },
         {
-          "teacherId": "elem_math_2",
+          "teacherId": "elem_math_1",
           "day": "금",
           "hour": 15
         }
@@ -1643,12 +1643,12 @@ export const SEED_STUDENTS = [
       ],
       "초등수학": [
         {
-          "teacherId": "elem_math_2",
+          "teacherId": "elem_math_1",
           "day": "월",
           "hour": 15
         },
         {
-          "teacherId": "elem_math_1",
+          "teacherId": "elem_math_2",
           "day": "화",
           "hour": 15
         },
@@ -1663,7 +1663,7 @@ export const SEED_STUDENTS = [
           "hour": 15
         },
         {
-          "teacherId": "elem_math_2",
+          "teacherId": "elem_math_1",
           "day": "금",
           "hour": 15
         }
@@ -1729,12 +1729,12 @@ export const SEED_STUDENTS = [
       ],
       "초등수학": [
         {
-          "teacherId": "elem_math_2",
+          "teacherId": "elem_math_1",
           "day": "월",
           "hour": 15
         },
         {
-          "teacherId": "elem_math_1",
+          "teacherId": "elem_math_2",
           "day": "화",
           "hour": 15
         },
@@ -1749,7 +1749,7 @@ export const SEED_STUDENTS = [
           "hour": 15
         },
         {
-          "teacherId": "elem_math_2",
+          "teacherId": "elem_math_1",
           "day": "금",
           "hour": 15
         }
@@ -1830,12 +1830,12 @@ export const SEED_STUDENTS = [
       ],
       "초등수학": [
         {
-          "teacherId": "elem_math_2",
+          "teacherId": "elem_math_1",
           "day": "월",
           "hour": 15
         },
         {
-          "teacherId": "elem_math_1",
+          "teacherId": "elem_math_2",
           "day": "화",
           "hour": 15
         },
@@ -1850,7 +1850,7 @@ export const SEED_STUDENTS = [
           "hour": 15
         },
         {
-          "teacherId": "elem_math_2",
+          "teacherId": "elem_math_1",
           "day": "금",
           "hour": 15
         }
@@ -1919,7 +1919,7 @@ export const SEED_STUDENTS = [
           "hour": 17
         },
         {
-          "teacherId": "elem_math_2",
+          "teacherId": "elem_math_1",
           "day": "화",
           "hour": 17
         },
@@ -1929,7 +1929,7 @@ export const SEED_STUDENTS = [
           "hour": 17
         },
         {
-          "teacherId": "elem_math_1",
+          "teacherId": "elem_math_2",
           "day": "금",
           "hour": 17
         }
@@ -2010,7 +2010,7 @@ export const SEED_STUDENTS = [
           "hour": 17
         },
         {
-          "teacherId": "elem_math_2",
+          "teacherId": "elem_math_1",
           "day": "화",
           "hour": 17
         },
@@ -2020,7 +2020,7 @@ export const SEED_STUDENTS = [
           "hour": 17
         },
         {
-          "teacherId": "elem_math_1",
+          "teacherId": "elem_math_2",
           "day": "금",
           "hour": 17
         }
@@ -2057,7 +2057,7 @@ export const SEED_STUDENTS = [
           "hour": 17
         },
         {
-          "teacherId": "elem_math_2",
+          "teacherId": "elem_math_1",
           "day": "화",
           "hour": 17
         },
@@ -2067,7 +2067,7 @@ export const SEED_STUDENTS = [
           "hour": 17
         },
         {
-          "teacherId": "elem_math_1",
+          "teacherId": "elem_math_2",
           "day": "금",
           "hour": 17
         }
@@ -2148,7 +2148,7 @@ export const SEED_STUDENTS = [
           "hour": 17
         },
         {
-          "teacherId": "elem_math_2",
+          "teacherId": "elem_math_1",
           "day": "화",
           "hour": 17
         },
@@ -2158,7 +2158,7 @@ export const SEED_STUDENTS = [
           "hour": 17
         },
         {
-          "teacherId": "elem_math_1",
+          "teacherId": "elem_math_2",
           "day": "금",
           "hour": 17
         }
@@ -2197,17 +2197,17 @@ export const SEED_STUDENTS = [
       ],
       "초등수학": [
         {
-          "teacherId": "elem_math_2",
+          "teacherId": "elem_math_1",
           "day": "화",
           "hour": 15
         },
         {
-          "teacherId": "elem_math_2",
+          "teacherId": "elem_math_1",
           "day": "월",
           "hour": 16
         },
         {
-          "teacherId": "elem_math_2",
+          "teacherId": "elem_math_1",
           "day": "화",
           "hour": 16
         },
@@ -2223,11 +2223,6 @@ export const SEED_STUDENTS = [
         }
       ],
       "초등영어": [
-        {
-          "teacherId": "elem_eng_5",
-          "day": "금",
-          "hour": 15
-        },
         {
           "teacherId": "elem_eng_4",
           "day": "월",
@@ -2263,6 +2258,11 @@ export const SEED_STUDENTS = [
         {
           "teacherId": "",
           "day": "목",
+          "hour": 15
+        },
+        {
+          "teacherId": "",
+          "day": "금",
           "hour": 15
         }
       ]
@@ -2288,17 +2288,17 @@ export const SEED_STUDENTS = [
       ],
       "초등수학": [
         {
-          "teacherId": "elem_math_2",
+          "teacherId": "elem_math_1",
           "day": "화",
           "hour": 15
         },
         {
-          "teacherId": "elem_math_2",
+          "teacherId": "elem_math_1",
           "day": "월",
           "hour": 16
         },
         {
-          "teacherId": "elem_math_2",
+          "teacherId": "elem_math_1",
           "day": "화",
           "hour": 16
         },
@@ -2314,11 +2314,6 @@ export const SEED_STUDENTS = [
         }
       ],
       "초등영어": [
-        {
-          "teacherId": "elem_eng_5",
-          "day": "금",
-          "hour": 15
-        },
         {
           "teacherId": "elem_eng_4",
           "day": "월",
@@ -2354,6 +2349,11 @@ export const SEED_STUDENTS = [
         {
           "teacherId": "",
           "day": "목",
+          "hour": 15
+        },
+        {
+          "teacherId": "",
+          "day": "금",
           "hour": 15
         }
       ]
@@ -2379,17 +2379,17 @@ export const SEED_STUDENTS = [
       ],
       "초등수학": [
         {
-          "teacherId": "elem_math_2",
+          "teacherId": "elem_math_1",
           "day": "화",
           "hour": 15
         },
         {
-          "teacherId": "elem_math_2",
+          "teacherId": "elem_math_1",
           "day": "월",
           "hour": 16
         },
         {
-          "teacherId": "elem_math_2",
+          "teacherId": "elem_math_1",
           "day": "화",
           "hour": 16
         },
@@ -2405,11 +2405,6 @@ export const SEED_STUDENTS = [
         }
       ],
       "초등영어": [
-        {
-          "teacherId": "elem_eng_5",
-          "day": "금",
-          "hour": 15
-        },
         {
           "teacherId": "elem_eng_4",
           "day": "월",
@@ -2446,6 +2441,11 @@ export const SEED_STUDENTS = [
           "teacherId": "",
           "day": "목",
           "hour": 15
+        },
+        {
+          "teacherId": "",
+          "day": "금",
+          "hour": 15
         }
       ]
     }
@@ -2457,11 +2457,6 @@ export const SEED_STUDENTS = [
     "grade": 6,
     "selectedTeachers": {
       "초등영어": [
-        {
-          "teacherId": "elem_eng_5",
-          "day": "금",
-          "hour": 15
-        },
         {
           "teacherId": "elem_eng_4",
           "day": "월",
@@ -2490,17 +2485,17 @@ export const SEED_STUDENTS = [
       ],
       "초등수학": [
         {
-          "teacherId": "elem_math_2",
+          "teacherId": "elem_math_1",
           "day": "화",
           "hour": 15
         },
         {
-          "teacherId": "elem_math_2",
+          "teacherId": "elem_math_1",
           "day": "월",
           "hour": 16
         },
         {
-          "teacherId": "elem_math_2",
+          "teacherId": "elem_math_1",
           "day": "화",
           "hour": 16
         },
@@ -2537,17 +2532,17 @@ export const SEED_STUDENTS = [
       ],
       "초등수학": [
         {
-          "teacherId": "elem_math_2",
+          "teacherId": "elem_math_1",
           "day": "화",
           "hour": 15
         },
         {
-          "teacherId": "elem_math_2",
+          "teacherId": "elem_math_1",
           "day": "월",
           "hour": 16
         },
         {
-          "teacherId": "elem_math_2",
+          "teacherId": "elem_math_1",
           "day": "화",
           "hour": 16
         },
@@ -2563,11 +2558,6 @@ export const SEED_STUDENTS = [
         }
       ],
       "초등영어": [
-        {
-          "teacherId": "elem_eng_5",
-          "day": "금",
-          "hour": 15
-        },
         {
           "teacherId": "elem_eng_4",
           "day": "월",
@@ -2603,6 +2593,11 @@ export const SEED_STUDENTS = [
         {
           "teacherId": "",
           "day": "목",
+          "hour": 15
+        },
+        {
+          "teacherId": "",
+          "day": "금",
           "hour": 15
         }
       ]
