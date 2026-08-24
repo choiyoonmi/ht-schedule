@@ -131,6 +131,11 @@ const generateSchedule = (students: Student[]): ScheduleEntry[] => {
 function validateSchedule(students: Student[]): string[] {
   const warnings: string[] = [];
   const teacherName = (id: string) => (TEACHERS.find(t => t.id === id) || { name: id }).name;
+  const className = (student: Student, subject: string, grade: number) => {
+    const division = student.division === '유치부' ? '유치부' : `${student.division[0]}${grade}`;
+    const shortSubject = subject.replace('초등', '').replace('중등', '').replace('고등', '');
+    return `${division} ${shortSubject}반`;
+  };
   // 1) 교사가 같은 시간에 서로 다른 반을 맡음
   const slot: Record<string, Set<string>> = {};
   for (const st of students) {
@@ -140,14 +145,15 @@ function validateSchedule(students: Student[]): string[] {
         if (!tid || tid === 'elem_eng_5') continue; // 숙제·클리닉 제외
         const g = (st.name === '홍리아' && subj === '초등영어') ? 5 : st.grade; // 합반 보정
         const key = `${e.day}|${e.hour}|${tid}`;
-        (slot[key] = slot[key] || new Set()).add(`${st.division}${g}-${subj}`);
+        (slot[key] = slot[key] || new Set()).add(className(st, subj, g));
       }
     }
   }
   for (const key in slot) {
     if (slot[key].size > 1) {
       const [day, hour, tid] = key.split('|');
-      warnings.push(`👨‍🏫 교사 중복: ${teacherName(tid)} — ${day} ${Number(hour) - 12}시에 ${slot[key].size}개 반 겹침`);
+      const classes = Array.from(slot[key]);
+      warnings.push(`👨‍🏫 교사 중복: ${teacherName(tid)} — ${day}요일 ${hour}:00 — ${classes.join(' ↔ ')}`);
     }
   }
   // 2) 한 학생이 같은 시간에 두 수업
@@ -424,6 +430,7 @@ function App() {
   };
 
   const scheduleWarnings = validateSchedule(students);
+  const teacherWarnings = scheduleWarnings.filter(warning => warning.startsWith('👨‍🏫'));
 
   const teacherNames = useMemo(
     () => Array.from(new Set(TEACHERS.map(teacher => teacher.name))),
@@ -493,8 +500,16 @@ function App() {
           <div className="sticky-bar" style={{position:'sticky', top:0, zIndex:30, background:'#f5f5f5', display:'flex', alignItems:'center', gap:'12px', flexWrap:'wrap', margin:'0 -20px 12px', padding:'14px 20px', borderBottom:'1px solid #ddd', boxShadow:'0 2px 6px rgba(0,0,0,0.08)'}}>
             <h2 style={{margin:0}}>👩‍🏫 학원 전체 선생님 시간표</h2>
             <span className="no-print" style={{fontSize:'12px', color:'#666'}}>학생 시간표를 기준으로 자동 집계됩니다.</span>
+            {teacherWarnings.length > 0 && <span className="no-print" style={{fontSize:'13px', color:'#fff', fontWeight:'bold', background:'#d32f2f', borderRadius:'12px', padding:'3px 12px'}}>⚠️ 교사 중복 {teacherWarnings.length}건</span>}
             <button className="no-print" onClick={() => window.print()} style={{marginLeft:'auto', padding:'7px 16px', borderRadius:'6px', border:'none', cursor:'pointer', fontSize:'13px', fontWeight:'bold', color:'#fff', background:'#1976D2'}}>🖨️ 인쇄</button>
           </div>
+
+          {teacherWarnings.length > 0 && (
+            <div className="no-print teacher-warning-panel">
+              <div className="teacher-warning-title">⚠️ 선생님 수업 중복 — 시간과 반을 확인해 주세요</div>
+              {teacherWarnings.map((warning, index) => <div key={index} className="teacher-warning-item">• {warning}</div>)}
+            </div>
+          )}
 
           <div className="teacher-overview-wrap">
             <table className="teacher-overview-table">
