@@ -199,21 +199,23 @@ function migrateScheduleCorrections(students: Student[]): Student[] {
       { teacherId: 'elem_eng_2', day: '목', hour: 14 },
     ],
     초등수학: [
-      { teacherId: 'elem_math_1', day: '월', hour: 16 },
       { teacherId: 'elem_math_1', day: '화', hour: 15 },
       { teacherId: 'elem_math_1', day: '화', hour: 16 },
       { teacherId: 'elem_math_2', day: '수', hour: 17 },
+      { teacherId: 'elem_math_1', day: '목', hour: 16 },
       { teacherId: 'elem_math_1', day: '금', hour: 14 },
     ],
     국어: [
       { teacherId: 'korean_1', day: '화', hour: 17 },
-      { teacherId: 'korean_1', day: '목', hour: 16 },
+      { teacherId: 'korean_1', day: '금', hour: 16 },
     ],
     숙제반: [
       { teacherId: '', day: '월', hour: 15 },
+      { teacherId: '', day: '월', hour: 16 },
       { teacherId: '', day: '수', hour: 15 },
       { teacherId: '', day: '수', hour: 16 },
       { teacherId: '', day: '목', hour: 15 },
+      { teacherId: '', day: '금', hour: 15 },
     ],
   });
 
@@ -226,7 +228,7 @@ function migrateScheduleCorrections(students: Student[]): Student[] {
     .map(student => {
     if (student.division !== '초등부') return student;
 
-    if (mixedGradeEnglishStudents.has(student.name) && student.grade === 2) {
+    if (mixedGradeEnglishStudents.has(student.name) && (student.grade === 2 || student.grade === 3)) {
       return { ...student, grade: 3, selectedTeachers: specialGrade3Schedule() };
     }
 
