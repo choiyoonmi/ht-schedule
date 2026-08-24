@@ -29,6 +29,27 @@ code {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
+.teacher-warning-panel {
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  border: 2px solid #d32f2f;
+  border-radius: 8px;
+  background: #ffebee;
+}
+
+.teacher-warning-title {
+  margin-bottom: 5px;
+  color: #b71c1c;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.teacher-warning-item {
+  color: #b71c1c;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
 .teacher-overview-table {
   width: max-content;
   min-width: 100%;
