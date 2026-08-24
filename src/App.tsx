@@ -466,24 +466,26 @@ function App() {
             <table className="teacher-overview-table">
               <thead>
                 <tr>
-                  <th className="teacher-overview-slot">요일·시간</th>
-                  {teacherNames.map(name => {
+                  <th className="teacher-overview-slot" rowSpan={2}>시간</th>
+                  {DAYS.map(day => <th key={day} className="teacher-day-heading" colSpan={teacherNames.length}>{day}요일</th>)}
+                </tr>
+                <tr>
+                  {DAYS.flatMap(day => teacherNames.map(name => {
                     const color = TEACHER_COLORS[name] || { bg: '#F5F5F5', border: '#999', text: '#333' };
-                    return <th key={name} style={{background: color.bg, color: color.text, borderTop: `4px solid ${color.border}`}}>{name}</th>;
-                  })}
+                    return <th key={`${day}-${name}`} className="teacher-name-heading" style={{background: color.bg, color: color.text, borderTop: `4px solid ${color.border}`}}>{name}</th>;
+                  }))}
                 </tr>
               </thead>
               <tbody>
-                {DAYS.flatMap(day => Array.from({length: 7}, (_, index) => 14 + index).map((hour, index) => (
-                  <tr key={`${day}-${hour}`} className={index === 0 ? 'teacher-day-start' : undefined}>
+                {Array.from({length: 7}, (_, index) => 14 + index).map(hour => (
+                  <tr key={hour}>
                     <th className="teacher-overview-slot">
-                      {index === 0 && <strong>{day}요일</strong>}
                       <span>{hour}:00</span>
                     </th>
-                    {teacherNames.map(name => {
+                    {DAYS.flatMap(day => teacherNames.map(name => {
                       const summaries = teacherSchedule.summarize(teacherSchedule.overview[day][hour][name]);
                       return (
-                        <td key={name}>
+                        <td key={`${day}-${name}`} className="teacher-sheet-cell">
                           {summaries.map(summary => {
                             const color = TEACHER_COLORS[name] || { bg: '#F5F5F5', border: '#999', text: '#333' };
                             return (
@@ -497,9 +499,9 @@ function App() {
                           })}
                         </td>
                       );
-                    })}
+                    }))}
                   </tr>
-                )))}
+                ))}
               </tbody>
             </table>
           </div>

@@ -30,8 +30,8 @@ code {
 }
 
 .teacher-overview-table {
-  width: 100%;
-  min-width: 1180px;
+  width: max-content;
+  min-width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
 }
@@ -52,12 +52,33 @@ code {
   text-align: center;
 }
 
+.teacher-overview-table thead tr:nth-child(2) th {
+  top: 42px;
+}
+
+.teacher-day-heading {
+  height: 42px !important;
+  background: #c9d9f2;
+  border-right: 3px solid #263238 !important;
+  color: #111;
+  font-size: 16px !important;
+}
+
+.teacher-name-heading {
+  width: 108px;
+  min-width: 108px;
+  max-width: 108px;
+}
+
 .teacher-overview-slot {
   width: 92px;
   min-width: 92px;
   background: #f2f4f7;
   text-align: center;
   vertical-align: middle !important;
+  position: sticky;
+  left: 0;
+  z-index: 6;
 }
 
 .teacher-overview-slot strong,
@@ -76,8 +97,16 @@ code {
   font-size: 12px;
 }
 
-.teacher-day-start > * {
-  border-top: 3px solid #607d8b !important;
+.teacher-sheet-cell {
+  width: 108px;
+  min-width: 108px;
+  max-width: 108px;
+  height: 145px;
+  background: #fff;
+}
+
+.teacher-sheet-cell:nth-child(8n + 1) {
+  border-right: 3px solid #263238;
 }
 
 .teacher-class-card {
@@ -86,6 +115,7 @@ code {
   padding: 6px 7px;
   margin-bottom: 5px;
   line-height: 1.3;
+  min-height: 100%;
 }
 
 .teacher-class-card:last-child {
