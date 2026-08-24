@@ -186,8 +186,48 @@ function validateSchedule(students: Student[]): string[] {
 // 기존 브라우저에 저장된 초5 수요일 2·3시 과목만 안전하게 교환한다.
 // 다른 학년과 사용자가 직접 수정한 시간표는 그대로 보존한다.
 function migrateScheduleCorrections(students: Student[]): Student[] {
-  return students.map(student => {
+  const mixedGradeEnglishStudents = new Set(['최사랑', '추예린', '이채린']);
+  const hasCorrectGrade3Record = new Set(
+    students.filter(student => mixedGradeEnglishStudents.has(student.name) && student.grade === 3).map(student => student.name)
+  );
+  const specialGrade3Schedule = (): Student['selectedTeachers'] => ({
+    초등영어: [
+      { teacherId: 'elem_eng_2', day: '월', hour: 14 },
+      { teacherId: 'elem_eng_3', day: '화', hour: 14 },
+      { teacherId: 'elem_eng_3', day: '수', hour: 14 },
+      { teacherId: 'elem_eng_2', day: '목', hour: 14 },
+    ],
+    초등수학: [
+      { teacherId: 'elem_math_1', day: '월', hour: 16 },
+      { teacherId: 'elem_math_1', day: '화', hour: 15 },
+      { teacherId: 'elem_math_1', day: '화', hour: 16 },
+      { teacherId: 'elem_math_2', day: '수', hour: 17 },
+      { teacherId: 'elem_math_1', day: '금', hour: 14 },
+    ],
+    국어: [
+      { teacherId: 'korean_1', day: '화', hour: 17 },
+      { teacherId: 'korean_1', day: '목', hour: 16 },
+    ],
+    숙제반: [
+      { teacherId: '', day: '월', hour: 15 },
+      { teacherId: '', day: '수', hour: 15 },
+      { teacherId: '', day: '수', hour: 16 },
+      { teacherId: '', day: '목', hour: 15 },
+    ],
+  });
+
+  return students
+    .filter(student => !(
+      mixedGradeEnglishStudents.has(student.name) &&
+      student.grade === 2 &&
+      hasCorrectGrade3Record.has(student.name)
+    ))
+    .map(student => {
     if (student.division !== '초등부') return student;
+
+    if (mixedGradeEnglishStudents.has(student.name) && student.grade === 2) {
+      return { ...student, grade: 3, selectedTeachers: specialGrade3Schedule() };
+    }
 
     if (student.name === '배소이' || student.name === '이준희') {
       return {
@@ -228,7 +268,7 @@ function migrateScheduleCorrections(students: Student[]): Student[] {
         ),
       },
     };
-  });
+    });
 }
 
 // 시드 명단 버전. 이 값을 바꿔서 배포하면 모든 브라우저가 새 명단으로 자동 갱신됨.
@@ -245,9 +285,9 @@ function App() {
       const parsed = saved ? JSON.parse(saved) : null;
       // 시드 버전이 최신이고 저장된 학생이 있을 때만 저장본 사용, 아니면 최신 시드로 갱신
       if (savedVer === SEED_VERSION && parsed && parsed.length) return migrateScheduleCorrections(parsed);
-      return SEED_STUDENTS as unknown as Student[];
+      return migrateScheduleCorrections(SEED_STUDENTS as unknown as Student[]);
     } catch {
-      return SEED_STUDENTS as unknown as Student[];
+      return migrateScheduleCorrections(SEED_STUDENTS as unknown as Student[]);
     }
   });
 
