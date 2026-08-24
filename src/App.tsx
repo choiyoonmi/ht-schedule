@@ -143,7 +143,8 @@ function validateSchedule(students: Student[]): string[] {
       for (const e of st.selectedTeachers[subj]) {
         const tid = e.teacherId;
         if (!tid || tid === 'elem_eng_5') continue; // 숙제·클리닉 제외
-        const g = (st.name === '홍리아' && subj === '초등영어') ? 5 : st.grade; // 합반 보정
+        const isMixedEnglishStudent = ['최사랑', '추예린', '이채린'].includes(st.name) && subj === '초등영어';
+        const g = (st.name === '홍리아' && subj === '초등영어') ? 5 : isMixedEnglishStudent ? 2 : st.grade; // 합반 보정
         const key = `${e.day}|${e.hour}|${tid}`;
         (slot[key] = slot[key] || new Set()).add(className(st, subj, g));
       }
@@ -230,15 +231,19 @@ function migrateScheduleCorrections(students: Student[]): Student[] {
     }
 
     if (student.name === '배소이' || student.name === '이준희') {
+      const homework = student.selectedTeachers['숙제반'] || [];
+      const hasFridayHomework = homework.some(selection => selection.day === '금' && selection.hour === 16);
       return {
         ...student,
         selectedTeachers: {
           ...student.selectedTeachers,
           초등수학: (student.selectedTeachers['초등수학'] || []).map(selection =>
-            selection.teacherId === 'elem_math_1' && selection.day === '수' && selection.hour === 15
-              ? { ...selection, day: '화', hour: 16 }
+            selection.teacherId === 'elem_math_1' &&
+            ((selection.day === '수' && selection.hour === 15) || (selection.day === '화' && selection.hour === 16))
+              ? { ...selection, day: '금', hour: 17 }
               : selection
           ),
+          숙제반: hasFridayHomework ? homework : [...homework, { teacherId: '', day: '금', hour: 16 }],
         },
       };
     }
