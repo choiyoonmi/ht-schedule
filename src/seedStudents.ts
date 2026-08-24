@@ -1379,7 +1379,7 @@ export const SEED_STUDENTS = [
         },
         {
           "teacherId": "korean_1",
-          "day": "수",
+          "day": "목",
           "hour": 14
         }
       ],
@@ -1465,7 +1465,7 @@ export const SEED_STUDENTS = [
         },
         {
           "teacherId": "korean_1",
-          "day": "수",
+          "day": "목",
           "hour": 14
         }
       ],
@@ -1551,7 +1551,7 @@ export const SEED_STUDENTS = [
         },
         {
           "teacherId": "korean_1",
-          "day": "수",
+          "day": "목",
           "hour": 14
         }
       ],
@@ -1637,7 +1637,7 @@ export const SEED_STUDENTS = [
         },
         {
           "teacherId": "korean_1",
-          "day": "수",
+          "day": "목",
           "hour": 14
         }
       ],
@@ -1723,7 +1723,7 @@ export const SEED_STUDENTS = [
         },
         {
           "teacherId": "korean_1",
-          "day": "수",
+          "day": "목",
           "hour": 14
         }
       ],

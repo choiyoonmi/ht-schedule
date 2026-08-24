@@ -179,9 +179,23 @@ function validateSchedule(students: Student[]): string[] {
 
 // 기존 브라우저에 저장된 초5 수요일 2·3시 과목만 안전하게 교환한다.
 // 다른 학년과 사용자가 직접 수정한 시간표는 그대로 보존한다.
-function migrateGrade5Wednesday(students: Student[]): Student[] {
+function migrateScheduleCorrections(students: Student[]): Student[] {
   return students.map(student => {
-    if (student.division !== '초등부' || student.grade !== 5) return student;
+    if (student.division !== '초등부') return student;
+
+    if (student.grade === 4) {
+      return {
+        ...student,
+        selectedTeachers: {
+          ...student.selectedTeachers,
+          국어: (student.selectedTeachers['국어'] || []).map(selection =>
+            selection.day === '수' && selection.hour === 14 ? { ...selection, day: '목' } : selection
+          ),
+        },
+      };
+    }
+
+    if (student.grade !== 5) return student;
     return {
       ...student,
       selectedTeachers: {
@@ -210,7 +224,7 @@ function App() {
       const saved = localStorage.getItem('happytree_students');
       const parsed = saved ? JSON.parse(saved) : null;
       // 시드 버전이 최신이고 저장된 학생이 있을 때만 저장본 사용, 아니면 최신 시드로 갱신
-      if (savedVer === SEED_VERSION && parsed && parsed.length) return migrateGrade5Wednesday(parsed);
+      if (savedVer === SEED_VERSION && parsed && parsed.length) return migrateScheduleCorrections(parsed);
       return SEED_STUDENTS as unknown as Student[];
     } catch {
       return SEED_STUDENTS as unknown as Student[];
