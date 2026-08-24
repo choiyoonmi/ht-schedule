@@ -189,6 +189,20 @@ function migrateScheduleCorrections(students: Student[]): Student[] {
   return students.map(student => {
     if (student.division !== '초등부') return student;
 
+    if (student.name === '배소이' || student.name === '이준희') {
+      return {
+        ...student,
+        selectedTeachers: {
+          ...student.selectedTeachers,
+          초등수학: (student.selectedTeachers['초등수학'] || []).map(selection =>
+            selection.teacherId === 'elem_math_1' && selection.day === '수' && selection.hour === 15
+              ? { ...selection, day: '화', hour: 16 }
+              : selection
+          ),
+        },
+      };
+    }
+
     if (student.grade === 4) {
       return {
         ...student,
