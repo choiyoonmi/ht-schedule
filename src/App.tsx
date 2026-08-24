@@ -430,6 +430,9 @@ function App() {
           subject,
           grades: grades.join('·'),
           names: subjectEntries.map(entry => entry.studentName),
+          notes: subject === '초등영어' && subjectEntries.some(entry => entry.studentName === '김주원(5)')
+            ? [subjectEntries[0]?.day === '목' ? '김주원: 초5반 합반 가능' : '김주원: 초등4 1반']
+            : [],
         };
       });
     };
@@ -487,6 +490,7 @@ function App() {
                               <div key={summary.subject} className="teacher-class-card" style={{background: color.bg, borderLeftColor: color.border}}>
                                 <div className="teacher-class-title" style={{color: color.text}}>{summary.subject}</div>
                                 <div className="teacher-class-meta">{summary.grades || '학년 미지정'} · {summary.names.length}명</div>
+                                {summary.notes.map(note => <div key={note} className="teacher-class-note">{note}</div>)}
                                 <div className="teacher-class-names">{summary.names.join(' · ')}</div>
                               </div>
                             );
