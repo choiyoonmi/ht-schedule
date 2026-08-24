@@ -111,6 +111,16 @@ code {
   word-break: keep-all;
 }
 
+.teacher-class-note {
+  margin-top: 3px;
+  padding: 2px 5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.75);
+  color: #8a4b08;
+  font-size: 9px;
+  font-weight: 800;
+}
+
 /* 인쇄(출력) 전용 스타일 */
 @media print {
   @page { margin: 10mm; }
