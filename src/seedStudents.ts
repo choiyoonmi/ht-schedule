@@ -358,8 +358,8 @@ export const SEED_STUDENTS = [
         },
         {
           "teacherId": "elem_math_1",
-          "day": "수",
-          "hour": 15
+          "day": "화",
+          "hour": 16
         },
         {
           "teacherId": "elem_math_1",
@@ -422,8 +422,8 @@ export const SEED_STUDENTS = [
         },
         {
           "teacherId": "elem_math_1",
-          "day": "수",
-          "hour": 15
+          "day": "화",
+          "hour": 16
         },
         {
           "teacherId": "elem_math_1",
