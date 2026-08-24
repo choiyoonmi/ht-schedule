@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import './App.css';
 import { SEED_STUDENTS } from './seedStudents';
 
@@ -181,7 +181,7 @@ function validateSchedule(students: Student[]): string[] {
 const SEED_VERSION = '2026-08-2학기-블록v5';
 
 function App() {
-  const [currentView, setCurrentView] = useState<'dashboard' | 'students'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'teachers' | 'students'>('dashboard');
   const [scheduleSearch, setScheduleSearch] = useState('');
 
   const [students, setStudents] = useState<Student[]>(() => {
@@ -391,6 +391,119 @@ function App() {
 
   const scheduleWarnings = validateSchedule(students);
 
+  const teacherNames = useMemo(
+    () => Array.from(new Set(TEACHERS.map(teacher => teacher.name))),
+    [],
+  );
+
+  const teacherSchedule = useMemo(() => {
+    const studentByName = new Map(students.map(student => [student.name, student]));
+    const overview: Record<string, Record<string, Record<string, ScheduleEntry[]>>> = {};
+
+    for (const day of DAYS) {
+      overview[day] = {};
+      for (let hour = 14; hour <= 20; hour++) {
+        overview[day][hour] = {};
+        for (const teacherName of teacherNames) overview[day][hour][teacherName] = [];
+      }
+    }
+
+    for (const entry of schedule) {
+      if (!overview[entry.day]?.[entry.hour]?.[entry.teacherName]) continue;
+      overview[entry.day][entry.hour][entry.teacherName].push(entry);
+    }
+
+    const summarize = (entries: ScheduleEntry[]) => {
+      const bySubject = new Map<string, ScheduleEntry[]>();
+      for (const entry of entries) {
+        const current = bySubject.get(entry.subject) || [];
+        if (!current.some(item => item.studentName === entry.studentName)) current.push(entry);
+        bySubject.set(entry.subject, current);
+      }
+
+      return Array.from(bySubject.entries()).map(([subject, subjectEntries]) => {
+        const learners = subjectEntries.map(entry => studentByName.get(entry.studentName)).filter(Boolean) as Student[];
+        const grades = Array.from(new Set(learners.map(student =>
+          student.division === '유치부' ? '유치부' : `${student.division.replace('부', '')}${student.grade}`
+        )));
+        return {
+          subject,
+          grades: grades.join('·'),
+          names: subjectEntries.map(entry => entry.studentName),
+        };
+      });
+    };
+
+    return { overview, summarize };
+  }, [schedule, students, teacherNames]);
+
+  if (currentView === 'teachers') {
+    return (
+      <div className="app-root" style={styles.app}>
+        <header className="no-print" style={styles.header}>
+          <div style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
+            <div style={{...styles.logo, width: '40px', height: '40px', fontSize: '20px', margin: 0}}>H</div>
+            <h1 style={styles.headerTitle}>해피트리학원 스케줄</h1>
+          </div>
+          <div style={styles.headerButtons}>
+            <button onClick={() => setCurrentView('dashboard')} style={{...styles.tabBtn}}>📊 메인</button>
+            <button onClick={() => setCurrentView('teachers')} style={{...styles.tabBtn, ...styles.tabBtnActive}}>👩‍🏫 선생님별 시간표</button>
+            <button onClick={() => setCurrentView('students')} style={{...styles.tabBtn}}>📋 학생관리</button>
+          </div>
+        </header>
+
+        <div className="dashboard-scroll" style={styles.dashboardContent}>
+          <div className="sticky-bar" style={{position:'sticky', top:0, zIndex:30, background:'#f5f5f5', display:'flex', alignItems:'center', gap:'12px', flexWrap:'wrap', margin:'0 -20px 12px', padding:'14px 20px', borderBottom:'1px solid #ddd', boxShadow:'0 2px 6px rgba(0,0,0,0.08)'}}>
+            <h2 style={{margin:0}}>👩‍🏫 학원 전체 선생님 시간표</h2>
+            <span className="no-print" style={{fontSize:'12px', color:'#666'}}>학생 시간표를 기준으로 자동 집계됩니다.</span>
+            <button className="no-print" onClick={() => window.print()} style={{marginLeft:'auto', padding:'7px 16px', borderRadius:'6px', border:'none', cursor:'pointer', fontSize:'13px', fontWeight:'bold', color:'#fff', background:'#1976D2'}}>🖨️ 인쇄</button>
+          </div>
+
+          <div className="teacher-overview-wrap">
+            <table className="teacher-overview-table">
+              <thead>
+                <tr>
+                  <th className="teacher-overview-slot">요일·시간</th>
+                  {teacherNames.map(name => {
+                    const color = TEACHER_COLORS[name] || { bg: '#F5F5F5', border: '#999', text: '#333' };
+                    return <th key={name} style={{background: color.bg, color: color.text, borderTop: `4px solid ${color.border}`}}>{name}</th>;
+                  })}
+                </tr>
+              </thead>
+              <tbody>
+                {DAYS.flatMap(day => Array.from({length: 7}, (_, index) => 14 + index).map((hour, index) => (
+                  <tr key={`${day}-${hour}`} className={index === 0 ? 'teacher-day-start' : undefined}>
+                    <th className="teacher-overview-slot">
+                      {index === 0 && <strong>{day}요일</strong>}
+                      <span>{hour}:00</span>
+                    </th>
+                    {teacherNames.map(name => {
+                      const summaries = teacherSchedule.summarize(teacherSchedule.overview[day][hour][name]);
+                      return (
+                        <td key={name}>
+                          {summaries.map(summary => {
+                            const color = TEACHER_COLORS[name] || { bg: '#F5F5F5', border: '#999', text: '#333' };
+                            return (
+                              <div key={summary.subject} className="teacher-class-card" style={{background: color.bg, borderLeftColor: color.border}}>
+                                <div className="teacher-class-title" style={{color: color.text}}>{summary.subject}</div>
+                                <div className="teacher-class-meta">{summary.grades || '학년 미지정'} · {summary.names.length}명</div>
+                                <div className="teacher-class-names">{summary.names.join(' · ')}</div>
+                              </div>
+                            );
+                          })}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                )))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (currentView === 'dashboard') {
     return (
       <div className="app-root" style={styles.app}>
@@ -402,6 +515,9 @@ function App() {
           <div style={styles.headerButtons}>
             <button onClick={() => setCurrentView('dashboard')} style={{...styles.tabBtn, ...styles.tabBtnActive}}>
               📊 메인
+            </button>
+            <button onClick={() => setCurrentView('teachers')} style={{...styles.tabBtn}}>
+              👩‍🏫 선생님별 시간표
             </button>
             <button onClick={() => setCurrentView('students')} style={{...styles.tabBtn}}>
               📋 학생관리
@@ -580,6 +696,9 @@ function App() {
         <div style={styles.headerButtons}>
           <button onClick={() => setCurrentView('dashboard')} style={{...styles.tabBtn}}>
             📊 메인
+          </button>
+          <button onClick={() => setCurrentView('teachers')} style={{...styles.tabBtn}}>
+            👩‍🏫 선생님별 시간표
           </button>
           <button onClick={() => setCurrentView('students')} style={{...styles.tabBtn, ...styles.tabBtnActive}}>
             📋 학생관리
@@ -1325,3 +1444,4 @@ const styles: Record<string, React.CSSProperties> = {
 };
 
 export default App;
+
