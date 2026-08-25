@@ -55,6 +55,10 @@ const TEACHERS: Teacher[] = [
 ];
 
 const DAYS: DayOfWeek[] = ['월', '화', '수', '목', '금'];
+const FIXED_TEACHER_CLASSES = [
+  { teacherId: 'elem_eng_1', teacherName: 'Kris', day: '월' as DayOfWeek, hour: 17, subject: '중등영어', classLabel: '중1' },
+  { teacherId: 'mid_eng_2', teacherName: '박은영', day: '월' as DayOfWeek, hour: 17, subject: '중등영어', classLabel: '중1' },
+];
 
 const TEACHER_COLORS: Record<string, {bg: string; border: string; text: string}> = {
   '문원영': { bg: '#E3F2FD', border: '#1976D2', text: '#0D47A1' },
@@ -155,6 +159,10 @@ function validateSchedule(students: Student[]): string[] {
       }
     }
   }
+  for (const fixed of FIXED_TEACHER_CLASSES) {
+    const key = `${fixed.day}|${fixed.hour}|${fixed.teacherId}`;
+    (slot[key] = slot[key] || new Set()).add(`${fixed.classLabel} ${fixed.subject.replace('중등', '')}반`);
+  }
   for (const key in slot) {
     if (slot[key].size > 1) {
       const [day, hour, tid] = key.split('|');
@@ -239,9 +247,9 @@ function migrateScheduleCorrections(students: Student[]): Student[] {
       ...fiveDayEnglish(['elem_eng_2', 'elem_eng_3', 'elem_eng_3', 'elem_eng_2', 'elem_eng_1'], 17).slice(0, 4),
       { teacherId: 'elem_eng_1', day: '금', hour: 16 },
     ],
-    '초등4 2반': fiveDayEnglish(['elem_eng_1', 'elem_eng_1', 'elem_eng_1', 'elem_eng_3', 'elem_eng_3'], 17),
+    '초등4 2반': fiveDayEnglish(['elem_eng_3', 'elem_eng_1', 'elem_eng_1', 'elem_eng_3', 'elem_eng_3'], 17),
     '초등 파닉스2반': [
-      { teacherId: 'elem_eng_3', day: '월', hour: 17 },
+      { teacherId: 'elem_eng_1', day: '월', hour: 16 },
       { teacherId: 'elem_eng_1', day: '화', hour: 14 },
       { teacherId: 'elem_eng_2', day: '수', hour: 17 },
       { teacherId: 'elem_eng_1', day: '목', hour: 17 },
@@ -291,7 +299,7 @@ function migrateScheduleCorrections(students: Student[]): Student[] {
         const math = (student.selectedTeachers['초등수학'] || []).map(item =>
           item.day === '금' && (item.hour === 14 || item.hour === 17) ? { ...item, hour: 16 } : item
         );
-        homework = [...homework.filter(item => !(item.day === '금' && item.hour === 16)), ...extraHomework]
+        homework = [...homework.filter(item => !((item.day === '금' || item.day === '월') && item.hour === 16)), ...extraHomework]
           .filter((item, index, all) => all.findIndex(other => other.day === item.day && other.hour === item.hour) === index);
         student = { ...student, selectedTeachers: { ...student.selectedTeachers, 초등수학: math } };
       }
@@ -587,6 +595,17 @@ function App() {
       if (!overview[entry.day]?.[entry.hour]?.[entry.teacherName]) continue;
       overview[entry.day][entry.hour][entry.teacherName].push(entry);
     }
+    for (const fixed of FIXED_TEACHER_CLASSES) {
+      if (!overview[fixed.day]?.[fixed.hour]?.[fixed.teacherName]) continue;
+      overview[fixed.day][fixed.hour][fixed.teacherName].push({
+        studentName: fixed.classLabel,
+        subject: fixed.subject,
+        teacherName: fixed.teacherName,
+        day: fixed.day,
+        hour: fixed.hour,
+        classLabel: fixed.classLabel,
+      });
+    }
 
     const summarize = (entries: ScheduleEntry[]) => {
       const bySubject = new Map<string, ScheduleEntry[]>();
@@ -602,6 +621,7 @@ function App() {
       return Array.from(bySubject.entries()).map(([groupKey, subjectEntries]) => {
         const subject = groupKey.split('|')[0];
         const classLabel = subjectEntries[0]?.classLabel;
+        const isFixedClass = Boolean(classLabel && subjectEntries.every(entry => entry.studentName === classLabel));
         const learners = subjectEntries.map(entry => studentByName.get(entry.studentName)).filter(Boolean) as Student[];
         const grades = Array.from(new Set(learners.map(student =>
           student.division === '유치부' ? '유치부' : `${student.division.replace('부', '')}${student.grade}`
@@ -609,7 +629,8 @@ function App() {
         return {
           subject,
           grades: classLabel || grades.join('·'),
-          names: subjectEntries.map(entry => entry.studentName),
+          names: isFixedClass ? [] : subjectEntries.map(entry => entry.studentName),
+          isFixedClass,
           notes: subject === '초등영어' && subjectEntries.some(entry => entry.studentName === '김주원(5)')
             ? [subjectEntries[0]?.day === '목' ? '김주원: 초5반 합반 가능' : '김주원: 초등4 1반']
             : [],
@@ -679,9 +700,9 @@ function App() {
                             return (
                               <div key={`${summary.subject}-${summary.grades}`} className="teacher-class-card" style={{background: color.bg, borderLeftColor: color.border}}>
                                 <div className="teacher-class-title" style={{color: color.text}}>{summary.subject}</div>
-                                <div className="teacher-class-meta">{summary.grades || '학년 미지정'} · {summary.names.length}명</div>
+                                <div className="teacher-class-meta">{summary.isFixedClass ? `${summary.grades} 고정수업` : `${summary.grades || '학년 미지정'} · ${summary.names.length}명`}</div>
                                 {summary.notes.map(note => <div key={note} className="teacher-class-note">{note}</div>)}
-                                <div className="teacher-class-names">{summary.names.join(' · ')}</div>
+                                {summary.names.length > 0 && <div className="teacher-class-names">{summary.names.join(' · ')}</div>}
                               </div>
                             );
                           })}
