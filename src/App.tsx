@@ -567,7 +567,7 @@ function App() {
   const teacherWarnings = scheduleWarnings.filter(warning => warning.startsWith('👨‍🏫'));
 
   const teacherNames = useMemo(
-    () => Array.from(new Set(TEACHERS.map(teacher => teacher.name))),
+    () => Array.from(new Set(TEACHERS.map(teacher => teacher.name))).filter(name => name !== '클리닉'),
     [],
   );
 
@@ -774,7 +774,7 @@ function App() {
             </div>
           )}
           {students.length > 0 ? (
-            <div style={styles.scheduleContainer}>
+            <div style={{...styles.scheduleContainer, gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: '10px'}}>
               {students.filter(s => !scheduleSearch.trim() || s.name.includes(scheduleSearch.trim())).map(student => {
                 const studentSchedule = schedule.filter(e => e.studentName === student.name);
                 const startHour = (student.division === '초등부' || student.division === '유치부') ? 14 : student.division === '중등부' ? 17 : 18;
