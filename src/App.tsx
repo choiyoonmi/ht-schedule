@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import type { CSSProperties } from 'react';
 import './App.css';
 import { SEED_STUDENTS } from './seedStudents';
 
@@ -409,12 +410,27 @@ function App() {
         }
       }
     }
-    const order = ['korean_1','elem_math_1','elem_math_2','elem_eng_1','elem_eng_2','elem_eng_3','elem_eng_4','elem_eng_5','__hw__'];
     const tname = (id: string) => id === '__hw__' ? '숙제반' : (TEACHERS.find(t => t.id === id)?.name || id);
     const gLabel = (gs: Set<number>) => Array.from(gs).sort((a,b)=>a-b).map(g => g===0?'유치':`초${g}`).join('·');
-    const teacherIds = order.filter(id => grid[id]);
+    // 구글시트 '국영수전체시간표'와 같은 열 순서 — 요일마다 이 열들이 반복된다
+    const ALL_COLS = [
+      { id: 'elem_eng_3', label: '영어 부T' },
+      { id: 'elem_eng_2', label: '영어 공T' },
+      { id: 'elem_eng_4', label: '영어 은영T' },
+      { id: 'elem_eng_1', label: '영어 KrisT' },
+      { id: 'elem_eng_5', label: '영어 클리닉' },
+      { id: 'korean_1',   label: '국어 원T' },
+      { id: 'elem_math_1', label: '수학 문소현' },
+      { id: 'elem_math_2', label: '수학 조교' },
+      { id: '__hw__',     label: '숙제반' },
+    ];
+    const cols = ALL_COLS.filter(c => grid[c.id]);
+    const ttHead: CSSProperties = {
+      border: '1px solid #b6bec7', padding: '5px 4px', fontSize: '11px',
+      fontWeight: 'bold', textAlign: 'center',
+    };
     return (
-      <div className="app-root" style={styles.app}>
+      <div className="app-root tt-page" style={styles.app}>
         <header className="no-print" style={styles.header}>
           <div style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
             <div style={{...styles.logo, width: '40px', height: '40px', fontSize: '20px', margin: 0}}>H</div>
@@ -431,36 +447,60 @@ function App() {
             <h2 style={{margin:0}}>👩‍🏫 선생님별 시간표</h2>
             <button className="no-print" onClick={() => window.print()} style={{padding:'7px 16px', borderRadius:'6px', border:'none', cursor:'pointer', fontSize:'13px', fontWeight:'bold', color:'#fff', background:'#1976D2'}}>🖨️ 인쇄</button>
           </div>
-          <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(340px,1fr))', gap:'16px'}}>
-            {teacherIds.map(tid => {
-              const subjOf = grid[tid][Object.keys(grid[tid])[0]]?.subject || '';
-              const clr = TEACHER_COLORS[tname(tid)] || TEACHER_COLORS['숙제반'];
-              return (
-                <div key={tid} style={{background:'#fff', borderRadius:'12px', padding:'14px', boxShadow:'0 2px 8px rgba(0,0,0,0.08)'}}>
-                  <div style={{fontWeight:'bold', fontSize:'16px', marginBottom:'8px', color: clr.text}}>
-                    {tname(tid)} <span style={{fontSize:'12px', color:'#888', fontWeight:'normal'}}>{subjOf.replace('초등','')}</span>
-                  </div>
-                  <table style={{width:'100%', borderCollapse:'collapse', fontSize:'11px'}}>
-                    <thead><tr><th style={styles.th}></th>{DAYS.map(d => <th key={d} style={{...styles.th, padding:'4px'}}>{d}</th>)}</tr></thead>
-                    <tbody>
-                      {HOURS.map(h => (
-                        <tr key={h}>
-                          <td style={{...styles.timeCell, padding:'4px', fontSize:'11px'}}>{h-12}시</td>
-                          {DAYS.map(d => {
-                            const c = grid[tid][`${d}|${h}`];
-                            return (
-                              <td key={d} style={{border:'1px solid #eee', padding:'3px', textAlign:'center', background: c ? clr.bg : '#fafafa'}}>
-                                {c ? <div><b style={{color:clr.text}}>{gLabel(c.grades)}</b><div style={{fontSize:'9px', color:'#999'}}>{c.names.length}명</div></div> : ''}
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              );
-            })}
+          <div className="tt-wrap" style={{overflowX:'auto', background:'#fff', borderRadius:'10px', boxShadow:'0 2px 8px rgba(0,0,0,0.08)', padding:'2px'}}>
+            <table className="tt" style={{borderCollapse:'collapse', fontSize:'11px', tableLayout:'fixed'}}>
+              <thead>
+                <tr>
+                  <th className="tt-corner" style={{...ttHead, width:'38px', minWidth:'38px', background:'#fff'}} rowSpan={2}></th>
+                  {DAYS.map((d, di) => (
+                    <th key={d} colSpan={cols.length}
+                        style={{...ttHead, fontSize:'14px', background:'#DDEBF7', color:'#123',
+                                borderRight: di < DAYS.length-1 ? '2px solid #7f8c9b' : '1px solid #b6bec7'}}>{d}</th>
+                  ))}
+                </tr>
+                <tr>
+                  {DAYS.map((d, di) => cols.map((c, ci) => {
+                    const clr = TEACHER_COLORS[tname(c.id)] || TEACHER_COLORS['숙제반'];
+                    return (
+                      <th key={d + c.id}
+                          style={{...ttHead, width:'92px', minWidth:'92px', background: clr.bg, color: clr.text,
+                                  borderRight: (ci === cols.length-1 && di < DAYS.length-1) ? '2px solid #7f8c9b' : '1px solid #b6bec7'}}>
+                        {c.label}
+                      </th>
+                    );
+                  }))}
+                </tr>
+              </thead>
+              <tbody>
+                {HOURS.map(h => (
+                  <tr key={h}>
+                    <th style={{...ttHead, background:'#fff', fontSize:'12px'}}>{h-12}시</th>
+                    {DAYS.map((d, di) => cols.map((c, ci) => {
+                      const cell = grid[c.id]?.[`${d}|${h}`];
+                      const clr = TEACHER_COLORS[tname(c.id)] || TEACHER_COLORS['숙제반'];
+                      return (
+                        <td key={d + c.id}
+                            style={{verticalAlign:'top', padding:'4px 5px', lineHeight:1.35,
+                                    border:'1px solid #d5dae0',
+                                    borderRight: (ci === cols.length-1 && di < DAYS.length-1) ? '2px solid #7f8c9b' : '1px solid #d5dae0',
+                                    background: cell ? clr.bg : '#fff'}}>
+                          {cell && (
+                            <>
+                              <div style={{fontWeight:'bold', color: clr.text, fontSize:'10px', marginBottom:'2px'}}>
+                                {gLabel(cell.grades)} <span style={{fontWeight:'normal', opacity:.7}}>{cell.names.length}</span>
+                              </div>
+                              {cell.names.map(n => (
+                                <div key={n} style={{fontSize:'10.5px', color:'#333', whiteSpace:'nowrap'}}>{n}</div>
+                              ))}
+                            </>
+                          )}
+                        </td>
+                      );
+                    }))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>

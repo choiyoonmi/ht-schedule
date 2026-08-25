@@ -40,4 +40,13 @@ code {
   .sticky-bar { position: static !important; box-shadow: none !important; border: none !important; margin: 0 0 6px !important; padding: 0 !important; background: transparent !important; }
   /* 인쇄 시 그림자 등 불필요한 효과 최소화 */
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  /* 선생님별 전체표는 가로로 넓어서 가로 용지에 한 장으로 */
+  .tt-wrap { overflow: visible !important; box-shadow: none !important; padding: 0 !important; }
+  .tt { width: 100% !important; font-size: 7.5px !important; table-layout: fixed !important; }
+  .tt th, .tt td { padding: 2px 1px !important; }
+  .tt th { font-size: 7.5px !important; }
+  .tt td div { font-size: 7.5px !important; line-height: 1.15 !important; }
 }
+/* 선생님별 전체표: 가로 용지 */
+@page tt-landscape { size: A4 landscape; margin: 6mm; }
+.tt-page { page: tt-landscape; }
