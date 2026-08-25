@@ -22,6 +22,7 @@ interface Student {
   name: string;
   division: Division;
   grade: number;
+  englishClass?: string;
   vocab?: string; // 단어 진도 (같은 책이라도 학생마다 다를 수 있음, 예: "Day 15", "3권 Unit 5")
   selectedTeachers: {
     [subject: string]: TeacherSelection[];
@@ -34,6 +35,7 @@ interface ScheduleEntry {
   teacherName: string;
   day: DayOfWeek;
   hour: number;
+  classLabel?: string;
 }
 
 const TEACHERS: Teacher[] = [
@@ -108,6 +110,7 @@ const generateSchedule = (students: Student[]): ScheduleEntry[] => {
             teacherName: '숙제반',
             day,
             hour,
+            classLabel: subject === '초등영어' ? student.englishClass : undefined,
           });
         } else {
           const teacher = TEACHERS.find(t => t.id === selection.teacherId);
@@ -119,6 +122,7 @@ const generateSchedule = (students: Student[]): ScheduleEntry[] => {
             teacherName: teacher.name,
             day,
             hour,
+            classLabel: subject === '초등영어' ? student.englishClass : undefined,
           });
         }
       });
@@ -134,6 +138,7 @@ function validateSchedule(students: Student[]): string[] {
   const className = (student: Student, subject: string, grade: number) => {
     const division = student.division === '유치부' ? '유치부' : `${student.division[0]}${grade}`;
     const shortSubject = subject.replace('초등', '').replace('중등', '').replace('고등', '');
+    if (subject === '초등영어' && student.englishClass) return student.englishClass;
     return `${division} ${shortSubject}반`;
   };
   // 1) 교사가 같은 시간에 서로 다른 반을 맡음
@@ -218,6 +223,31 @@ function migrateScheduleCorrections(students: Student[]): Student[] {
       { teacherId: '', day: '금', hour: 15 },
     ],
   });
+  const grade3EnglishClasses: Record<string, string> = {
+    이채린: '초등3 1반', 최사랑: '초등3 1반', 추예린: '초등3 1반',
+    위지아: '초등3 2반', 윤하영: '초등3 2반',
+    김라윤: '초등4 1반', 현재윤: '초등4 1반',
+    김시안: '초등4 2반', '박수현(3)': '초등4 2반', 이지호: '초등4 2반',
+    이리안: '초등 파닉스2반', 장하민: '초등 파닉스1반',
+  };
+  const fiveDayEnglish = (teachers: string[], hour: number): TeacherSelection[] =>
+    DAYS.map((day, index) => ({ teacherId: teachers[index], day, hour }));
+  const grade3EnglishSchedules: Record<string, TeacherSelection[]> = {
+    '초등3 2반': fiveDayEnglish(['elem_eng_1', 'elem_eng_3', 'elem_eng_1', 'elem_eng_2', 'elem_eng_2'], 15),
+    '초등 파닉스1반': fiveDayEnglish(['elem_eng_2', 'elem_eng_1', 'elem_eng_3', 'elem_eng_1', 'elem_eng_3'], 15),
+    '초등4 1반': [
+      ...fiveDayEnglish(['elem_eng_2', 'elem_eng_3', 'elem_eng_3', 'elem_eng_2', 'elem_eng_1'], 17).slice(0, 4),
+      { teacherId: 'elem_eng_1', day: '금', hour: 16 },
+    ],
+    '초등4 2반': fiveDayEnglish(['elem_eng_1', 'elem_eng_1', 'elem_eng_1', 'elem_eng_3', 'elem_eng_3'], 17),
+    '초등 파닉스2반': [
+      { teacherId: 'elem_eng_3', day: '월', hour: 17 },
+      { teacherId: 'elem_eng_1', day: '화', hour: 14 },
+      { teacherId: 'elem_eng_2', day: '수', hour: 17 },
+      { teacherId: 'elem_eng_1', day: '목', hour: 17 },
+      { teacherId: 'elem_eng_1', day: '금', hour: 14 },
+    ],
+  };
 
   return students
     .filter(student => !(
@@ -229,7 +259,49 @@ function migrateScheduleCorrections(students: Student[]): Student[] {
     if (student.division !== '초등부') return student;
 
     if (mixedGradeEnglishStudents.has(student.name) && (student.grade === 2 || student.grade === 3)) {
-      return { ...student, grade: 3, selectedTeachers: specialGrade3Schedule() };
+      return { ...student, grade: 3, englishClass: '초등3 1반', selectedTeachers: specialGrade3Schedule() };
+    }
+
+    const englishClass = grade3EnglishClasses[student.name];
+    if (student.grade === 3 && englishClass) {
+      const englishSchedule = grade3EnglishSchedules[englishClass];
+      let homework = student.selectedTeachers['숙제반'] || [];
+      let korean = student.selectedTeachers['국어'] || [];
+      if (englishClass === '초등4 1반' || englishClass === '초등4 2반') {
+        const extraHomework = DAYS.map(day => ({ teacherId: '', day, hour: 15 } as TeacherSelection));
+        if (englishClass === '초등4 2반') {
+          for (const day of DAYS) {
+            const hasClassAt16 = Object.entries(student.selectedTeachers)
+              .filter(([subject]) => subject !== '초등영어' && subject !== '숙제반')
+              .some(([, selections]) => selections.some(item => item.day === day && item.hour === 16));
+            if (!hasClassAt16) extraHomework.push({ teacherId: '', day, hour: 16 });
+          }
+        }
+        homework = [...homework.filter(item => !(item.day === '금' && item.hour === 16)), ...extraHomework]
+          .filter((item, index, all) => all.findIndex(other => other.day === item.day && other.hour === item.hour) === index);
+      }
+      if (englishClass === '초등 파닉스2반') {
+        korean = korean.map(item => item.day === '화' && item.hour === 14 ? { ...item, hour: 17 } : item);
+        const extraHomework: TeacherSelection[] = [
+          { teacherId: '', day: '월', hour: 15 },
+          { teacherId: '', day: '화', hour: 15 },
+          { teacherId: '', day: '수', hour: 15 },
+          { teacherId: '', day: '금', hour: 15 },
+        ];
+        const math = (student.selectedTeachers['초등수학'] || []).map(item =>
+          item.day === '금' && (item.hour === 14 || item.hour === 17) ? { ...item, hour: 16 } : item
+        );
+        homework = [...homework.filter(item => !(item.day === '금' && item.hour === 16)), ...extraHomework]
+          .filter((item, index, all) => all.findIndex(other => other.day === item.day && other.hour === item.hour) === index);
+        student = { ...student, selectedTeachers: { ...student.selectedTeachers, 초등수학: math } };
+      }
+      return {
+        ...student,
+        englishClass,
+        selectedTeachers: englishSchedule
+          ? { ...student.selectedTeachers, 초등영어: englishSchedule, 국어: korean, 숙제반: homework }
+          : student.selectedTeachers,
+      };
     }
 
     if (student.name === '배소이' || student.name === '이준희') {
@@ -237,6 +309,7 @@ function migrateScheduleCorrections(students: Student[]): Student[] {
       const hasFridayHomework = homework.some(selection => selection.day === '금' && selection.hour === 16);
       return {
         ...student,
+        englishClass: '초등3 1반',
         selectedTeachers: {
           ...student.selectedTeachers,
           초등수학: (student.selectedTeachers['초등수학'] || []).map(selection =>
@@ -518,19 +591,24 @@ function App() {
     const summarize = (entries: ScheduleEntry[]) => {
       const bySubject = new Map<string, ScheduleEntry[]>();
       for (const entry of entries) {
-        const current = bySubject.get(entry.subject) || [];
+        const groupKey = entry.subject === '초등영어' && entry.classLabel
+          ? `${entry.subject}|${entry.classLabel}`
+          : entry.subject;
+        const current = bySubject.get(groupKey) || [];
         if (!current.some(item => item.studentName === entry.studentName)) current.push(entry);
-        bySubject.set(entry.subject, current);
+        bySubject.set(groupKey, current);
       }
 
-      return Array.from(bySubject.entries()).map(([subject, subjectEntries]) => {
+      return Array.from(bySubject.entries()).map(([groupKey, subjectEntries]) => {
+        const subject = groupKey.split('|')[0];
+        const classLabel = subjectEntries[0]?.classLabel;
         const learners = subjectEntries.map(entry => studentByName.get(entry.studentName)).filter(Boolean) as Student[];
         const grades = Array.from(new Set(learners.map(student =>
           student.division === '유치부' ? '유치부' : `${student.division.replace('부', '')}${student.grade}`
         )));
         return {
           subject,
-          grades: grades.join('·'),
+          grades: classLabel || grades.join('·'),
           names: subjectEntries.map(entry => entry.studentName),
           notes: subject === '초등영어' && subjectEntries.some(entry => entry.studentName === '김주원(5)')
             ? [subjectEntries[0]?.day === '목' ? '김주원: 초5반 합반 가능' : '김주원: 초등4 1반']
@@ -599,7 +677,7 @@ function App() {
                           {summaries.map(summary => {
                             const color = TEACHER_COLORS[name] || { bg: '#F5F5F5', border: '#999', text: '#333' };
                             return (
-                              <div key={summary.subject} className="teacher-class-card" style={{background: color.bg, borderLeftColor: color.border}}>
+                              <div key={`${summary.subject}-${summary.grades}`} className="teacher-class-card" style={{background: color.bg, borderLeftColor: color.border}}>
                                 <div className="teacher-class-title" style={{color: color.text}}>{summary.subject}</div>
                                 <div className="teacher-class-meta">{summary.grades || '학년 미지정'} · {summary.names.length}명</div>
                                 {summary.notes.map(note => <div key={note} className="teacher-class-note">{note}</div>)}
@@ -706,7 +784,7 @@ function App() {
                   <div key={student.id} className="print-student" style={styles.studentScheduleSection}>
                     <div style={styles.scheduleHeader}>
                       <h4>{student.name}</h4>
-                      <span style={styles.gradeBadge}>{student.division} {student.grade}학년</span>
+                      <span style={styles.gradeBadge}>{student.division} {student.grade}학년{student.englishClass ? ` · 영어 ${student.englishClass}` : ''}</span>
                       {editMode ? (
                         <input
                           type="text"
@@ -904,7 +982,7 @@ function App() {
             <>
               <div style={styles.studentInfo}>
                 <h3>{editingStudent.name}</h3>
-                <p>{editingStudent.division} {editingStudent.grade}학년</p>
+                <p>{editingStudent.division} {editingStudent.grade}학년{editingStudent.englishClass ? ` · 영어 ${editingStudent.englishClass}` : ''}</p>
               </div>
 
               <div style={styles.subjectsContainer}>
@@ -1040,7 +1118,7 @@ function App() {
 
                 return (
                   <div key={student.id} style={styles.previewSection}>
-                    <h4 style={styles.previewTitle}>{student.name} ({student.division} {student.grade}학년)</h4>
+                    <h4 style={styles.previewTitle}>{student.name} ({student.division} {student.grade}학년{student.englishClass ? ` · 영어 ${student.englishClass}` : ''})</h4>
                     <table style={styles.previewTable}>
                       <thead>
                         <tr>
