@@ -336,17 +336,17 @@ function migrateScheduleCorrections(students: Student[]): Student[] {
     }
 
     if (student.name === '배소이' || student.name === '이준희') {
-      const homework = (student.selectedTeachers['숙제반'] || []).filter(selection => !(selection.day === '월' && selection.hour === 16));
+      const homework = (student.selectedTeachers['숙제반'] || []).filter(selection =>
+        !((selection.day === '월' || selection.day === '금') && selection.hour === 16)
+      );
       const hasFridayHomework15 = homework.some(selection => selection.day === '금' && selection.hour === 15);
-      const hasFridayHomework16 = homework.some(selection => selection.day === '금' && selection.hour === 16);
       const korean: TeacherSelection[] = [
         { teacherId: 'korean_1', day: '목', hour: 14 },
-        { teacherId: 'korean_1', day: '수', hour: 15 },
+        { teacherId: 'korean_1', day: '금', hour: 16 },
       ];
       const completedHomework = [
         ...homework,
         ...(hasFridayHomework15 ? [] : [{ teacherId: '', day: '금' as DayOfWeek, hour: 15 }]),
-        ...(hasFridayHomework16 ? [] : [{ teacherId: '', day: '금' as DayOfWeek, hour: 16 }]),
       ];
       return {
         ...student,
