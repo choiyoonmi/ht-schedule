@@ -138,9 +138,11 @@ function validateSchedule(students: Student[]): string[] {
       for (const e of st.selectedTeachers[subj]) {
         const tid = e.teacherId;
         if (!tid || tid === 'elem_eng_5') continue; // 숙제·클리닉 제외
-        const g = (st.name === '홍리아' && subj === '초등영어') ? 5 : st.grade; // 합반 보정
+        // 영어·국어는 한 교사=한 반(합반 가능). 수학만 학년별로 구분(학년 섞임 방지).
+        const oneClass = subj.includes('영어') || subj === '국어';
+        const cls = oneClass ? `${subj}|${tid}` : `${st.division}${st.grade}-${subj}`;
         const key = `${e.day}|${e.hour}|${tid}`;
-        (slot[key] = slot[key] || new Set()).add(`${st.division}${g}-${subj}`);
+        (slot[key] = slot[key] || new Set()).add(cls);
       }
     }
   }
@@ -178,10 +180,10 @@ function validateSchedule(students: Student[]): string[] {
 }
 
 // 시드 명단 버전. 이 값을 바꿔서 배포하면 모든 브라우저가 새 명단으로 자동 갱신됨.
-const SEED_VERSION = '2026-08-2학기-블록v5';
+const SEED_VERSION = '2026-08-25-코덱스병합-v12';
 
 function App() {
-  const [currentView, setCurrentView] = useState<'dashboard' | 'students'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'students' | 'teachers'>('dashboard');
   const [scheduleSearch, setScheduleSearch] = useState('');
 
   const [students, setStudents] = useState<Student[]>(() => {
@@ -391,6 +393,80 @@ function App() {
 
   const scheduleWarnings = validateSchedule(students);
 
+  // ===== 선생님별 시간표 =====
+  if (currentView === 'teachers') {
+    const HOURS = [14, 15, 16, 17];
+    type Cell = { subject: string; grades: Set<number>; names: string[] };
+    const grid: Record<string, Record<string, Cell>> = {};
+    for (const st of students) {
+      for (const subj in st.selectedTeachers) {
+        for (const e of st.selectedTeachers[subj]) {
+          const tid = e.teacherId || '__hw__';
+          const key = `${e.day}|${e.hour}`;
+          (grid[tid] = grid[tid] || {});
+          const c = (grid[tid][key] = grid[tid][key] || { subject: subj, grades: new Set(), names: [] });
+          c.grades.add(st.grade); c.names.push(st.name);
+        }
+      }
+    }
+    const order = ['korean_1','elem_math_1','elem_math_2','elem_eng_1','elem_eng_2','elem_eng_3','elem_eng_4','elem_eng_5','__hw__'];
+    const tname = (id: string) => id === '__hw__' ? '숙제반' : (TEACHERS.find(t => t.id === id)?.name || id);
+    const gLabel = (gs: Set<number>) => Array.from(gs).sort((a,b)=>a-b).map(g => g===0?'유치':`초${g}`).join('·');
+    const teacherIds = order.filter(id => grid[id]);
+    return (
+      <div className="app-root" style={styles.app}>
+        <header className="no-print" style={styles.header}>
+          <div style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
+            <div style={{...styles.logo, width: '40px', height: '40px', fontSize: '20px', margin: 0}}>H</div>
+            <h1 style={styles.headerTitle}>해피트리학원 스케줄</h1>
+          </div>
+          <div style={styles.headerButtons}>
+            <button onClick={() => setCurrentView('dashboard')} style={{...styles.tabBtn}}>📊 메인</button>
+            <button onClick={() => setCurrentView('teachers')} style={{...styles.tabBtn, ...styles.tabBtnActive}}>👩‍🏫 선생님별</button>
+            <button onClick={() => setCurrentView('students')} style={{...styles.tabBtn}}>📋 학생관리</button>
+          </div>
+        </header>
+        <div className="dashboard-scroll" style={styles.dashboardContent}>
+          <div className="sticky-bar" style={{position:'sticky', top:0, zIndex:30, background:'#f5f5f5', display:'flex', alignItems:'center', gap:'12px', flexWrap:'wrap', margin:'0 -20px 12px', padding:'14px 20px', borderBottom:'1px solid #ddd'}}>
+            <h2 style={{margin:0}}>👩‍🏫 선생님별 시간표</h2>
+            <button className="no-print" onClick={() => window.print()} style={{padding:'7px 16px', borderRadius:'6px', border:'none', cursor:'pointer', fontSize:'13px', fontWeight:'bold', color:'#fff', background:'#1976D2'}}>🖨️ 인쇄</button>
+          </div>
+          <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(340px,1fr))', gap:'16px'}}>
+            {teacherIds.map(tid => {
+              const subjOf = grid[tid][Object.keys(grid[tid])[0]]?.subject || '';
+              const clr = TEACHER_COLORS[tname(tid)] || TEACHER_COLORS['숙제반'];
+              return (
+                <div key={tid} style={{background:'#fff', borderRadius:'12px', padding:'14px', boxShadow:'0 2px 8px rgba(0,0,0,0.08)'}}>
+                  <div style={{fontWeight:'bold', fontSize:'16px', marginBottom:'8px', color: clr.text}}>
+                    {tname(tid)} <span style={{fontSize:'12px', color:'#888', fontWeight:'normal'}}>{subjOf.replace('초등','')}</span>
+                  </div>
+                  <table style={{width:'100%', borderCollapse:'collapse', fontSize:'11px'}}>
+                    <thead><tr><th style={styles.th}></th>{DAYS.map(d => <th key={d} style={{...styles.th, padding:'4px'}}>{d}</th>)}</tr></thead>
+                    <tbody>
+                      {HOURS.map(h => (
+                        <tr key={h}>
+                          <td style={{...styles.timeCell, padding:'4px', fontSize:'11px'}}>{h-12}시</td>
+                          {DAYS.map(d => {
+                            const c = grid[tid][`${d}|${h}`];
+                            return (
+                              <td key={d} style={{border:'1px solid #eee', padding:'3px', textAlign:'center', background: c ? clr.bg : '#fafafa'}}>
+                                {c ? <div><b style={{color:clr.text}}>{gLabel(c.grades)}</b><div style={{fontSize:'9px', color:'#999'}}>{c.names.length}명</div></div> : ''}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (currentView === 'dashboard') {
     return (
       <div className="app-root" style={styles.app}>
@@ -402,6 +478,9 @@ function App() {
           <div style={styles.headerButtons}>
             <button onClick={() => setCurrentView('dashboard')} style={{...styles.tabBtn, ...styles.tabBtnActive}}>
               📊 메인
+            </button>
+            <button onClick={() => setCurrentView('teachers')} style={{...styles.tabBtn}}>
+              👩‍🏫 선생님별
             </button>
             <button onClick={() => setCurrentView('students')} style={{...styles.tabBtn}}>
               📋 학생관리
@@ -580,6 +659,9 @@ function App() {
         <div style={styles.headerButtons}>
           <button onClick={() => setCurrentView('dashboard')} style={{...styles.tabBtn}}>
             📊 메인
+          </button>
+          <button onClick={() => setCurrentView('teachers')} style={{...styles.tabBtn}}>
+            👩‍🏫 선생님별
           </button>
           <button onClick={() => setCurrentView('students')} style={{...styles.tabBtn, ...styles.tabBtnActive}}>
             📋 학생관리
