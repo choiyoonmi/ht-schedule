@@ -153,7 +153,9 @@ function validateSchedule(students: Student[]): string[] {
         const tid = e.teacherId;
         if (!tid || tid === 'elem_eng_5') continue; // 숙제·클리닉 제외
         const isMixedEnglishStudent = ['최사랑', '추예린', '이채린'].includes(st.name) && subj === '초등영어';
-        const g = (st.name === '홍리아' && subj === '초등영어') ? 5 : isMixedEnglishStudent ? 2 : st.grade; // 합반 보정
+        const g = st.name === '김주원(5)' && subj === '초등영어'
+          ? 4
+          : (st.name === '홍리아' && subj === '초등영어') ? 5 : isMixedEnglishStudent ? 2 : st.grade; // 합반 보정
         const key = `${e.day}|${e.hour}|${tid}`;
         (slot[key] = slot[key] || new Set()).add(className(st, subj, g));
       }
@@ -209,26 +211,24 @@ function migrateScheduleCorrections(students: Student[]): Student[] {
       { teacherId: 'elem_eng_2', day: '월', hour: 14 },
       { teacherId: 'elem_eng_3', day: '화', hour: 14 },
       { teacherId: 'elem_eng_3', day: '수', hour: 14 },
-      { teacherId: 'elem_eng_2', day: '목', hour: 14 },
+      { teacherId: 'elem_eng_1', day: '금', hour: 15 },
     ],
     초등수학: [
       { teacherId: 'elem_math_1', day: '화', hour: 15 },
       { teacherId: 'elem_math_1', day: '화', hour: 16 },
       { teacherId: 'elem_math_2', day: '수', hour: 17 },
       { teacherId: 'elem_math_1', day: '목', hour: 16 },
-      { teacherId: 'elem_math_1', day: '금', hour: 14 },
+      { teacherId: 'elem_math_2', day: '금', hour: 14 },
     ],
     국어: [
       { teacherId: 'korean_1', day: '화', hour: 17 },
-      { teacherId: 'korean_1', day: '금', hour: 16 },
+      { teacherId: 'korean_1', day: '수', hour: 16 },
     ],
     숙제반: [
       { teacherId: '', day: '월', hour: 15 },
       { teacherId: '', day: '월', hour: 16 },
       { teacherId: '', day: '수', hour: 15 },
-      { teacherId: '', day: '수', hour: 16 },
       { teacherId: '', day: '목', hour: 15 },
-      { teacherId: '', day: '금', hour: 15 },
     ],
   });
   const grade3EnglishClasses: Record<string, string> = {
@@ -272,6 +272,21 @@ function migrateScheduleCorrections(students: Student[]): Student[] {
 
     const englishClass = grade3EnglishClasses[student.name];
     if (student.grade === 3 && englishClass) {
+      if (student.name === '박수현(3)') {
+        const reference = students.find(item => item.name === '김시안');
+        student = {
+          ...student,
+          selectedTeachers: {
+            ...student.selectedTeachers,
+            초등수학: student.selectedTeachers['초등수학']?.length
+              ? student.selectedTeachers['초등수학']
+              : (reference?.selectedTeachers['초등수학'] || []).map(item => ({ ...item })),
+            국어: student.selectedTeachers['국어']?.length
+              ? student.selectedTeachers['국어']
+              : (reference?.selectedTeachers['국어'] || []).map(item => ({ ...item })),
+          },
+        };
+      }
       const englishSchedule = grade3EnglishSchedules[englishClass];
       let homework = student.selectedTeachers['숙제반'] || [];
       let korean = student.selectedTeachers['국어'] || [];
@@ -303,42 +318,110 @@ function migrateScheduleCorrections(students: Student[]): Student[] {
           .filter((item, index, all) => all.findIndex(other => other.day === item.day && other.hour === item.hour) === index);
         student = { ...student, selectedTeachers: { ...student.selectedTeachers, 초등수학: math } };
       }
+      const adjustedMath = (student.selectedTeachers['초등수학'] || []).map(item =>
+        item.day === '월' && item.hour === 14 && item.teacherId === 'elem_math_1'
+          ? { ...item, teacherId: 'elem_math_2' }
+          : item
+      );
+      const occupiedSlots = new Set([...adjustedMath, ...korean, ...(englishSchedule || [])].map(item => `${item.day}|${item.hour}`));
+      homework = homework.filter(item => !occupiedSlots.has(`${item.day}|${item.hour}`));
       return {
         ...student,
         englishClass,
         selectedTeachers: englishSchedule
-          ? { ...student.selectedTeachers, 초등영어: englishSchedule, 국어: korean, 숙제반: homework }
+          ? { ...student.selectedTeachers, 초등수학: adjustedMath, 초등영어: englishSchedule, 국어: korean, 숙제반: homework }
           : student.selectedTeachers,
       };
     }
 
     if (student.name === '배소이' || student.name === '이준희') {
-      const homework = student.selectedTeachers['숙제반'] || [];
+      const homework = (student.selectedTeachers['숙제반'] || []).filter(selection => !(selection.day === '월' && selection.hour === 16));
       const hasFridayHomework = homework.some(selection => selection.day === '금' && selection.hour === 16);
+      const korean: TeacherSelection[] = [
+        { teacherId: 'korean_1', day: '목', hour: 14 },
+        { teacherId: 'korean_1', day: '금', hour: 14 },
+      ];
       return {
         ...student,
         englishClass: '초등3 1반',
         selectedTeachers: {
           ...student.selectedTeachers,
+          초등영어: (student.selectedTeachers['초등영어'] || []).map(selection =>
+            selection.day === '목' && selection.hour === 14
+              ? { ...selection, day: '금', hour: 15, teacherId: 'elem_eng_1' }
+              : selection
+          ),
           초등수학: (student.selectedTeachers['초등수학'] || []).map(selection =>
-            selection.teacherId === 'elem_math_1' &&
-            ((selection.day === '수' && selection.hour === 15) || (selection.day === '화' && selection.hour === 16))
+            selection.day === '금' && (selection.hour === 15 || selection.hour === 16)
+              ? { ...selection, day: '월', hour: 16, teacherId: 'elem_math_2' }
+              : selection.teacherId === 'elem_math_1' &&
+                ((selection.day === '수' && selection.hour === 15) || (selection.day === '화' && selection.hour === 16))
               ? { ...selection, day: '금', hour: 17 }
               : selection
           ),
+          국어: korean,
           숙제반: hasFridayHomework ? homework : [...homework, { teacherId: '', day: '금', hour: 16 }],
         },
       };
     }
 
-    if (student.grade === 4) {
+    if (student.grade === 1) {
       return {
         ...student,
         selectedTeachers: {
           ...student.selectedTeachers,
-          국어: (student.selectedTeachers['국어'] || []).map(selection =>
-            selection.day === '수' && selection.hour === 14 ? { ...selection, day: '목' } : selection
+          초등수학: (student.selectedTeachers['초등수학'] || []).map(selection =>
+            selection.day === '월' && selection.hour === 16 && selection.teacherId === 'elem_math_2'
+              ? { ...selection, hour: 14, teacherId: 'elem_math_1' }
+              : selection
           ),
+        },
+      };
+    }
+
+    if (student.grade === 4) {
+      if (student.name === '홍리아' && !(student.selectedTeachers['국어'] || []).length) {
+        const reference = students.find(item => item.name === '김민채');
+        student = {
+          ...student,
+          selectedTeachers: {
+            ...student.selectedTeachers,
+            국어: (reference?.selectedTeachers['국어'] || []).map(item => ({ ...item })),
+          },
+        };
+      }
+      const homework = (student.selectedTeachers['숙제반'] || []).filter(selection => !(selection.day === '화' && (selection.hour === 14 || selection.hour === 15)));
+      return {
+        ...student,
+        englishClass: undefined,
+        selectedTeachers: {
+          ...student.selectedTeachers,
+          초등수학: (student.selectedTeachers['초등수학'] || []).map(selection =>
+            selection.day === '화' && selection.hour === 15
+              ? { ...selection, hour: 14, teacherId: 'elem_math_2' }
+              : selection
+          ),
+          국어: (student.selectedTeachers['국어'] || []).map(selection =>
+            (selection.day === '수' || selection.day === '목') && selection.hour === 14
+              ? { ...selection, day: '화', hour: 15 }
+              : selection
+          ),
+          숙제반: homework,
+        },
+      };
+    }
+
+    if (student.name === '김주원(5)') {
+      const englishReference = students.find(item => item.name === '위지유');
+      const grade5Reference = students.find(item => item.name === '김의진');
+      return {
+        ...student,
+        englishClass: undefined,
+        selectedTeachers: {
+          ...student.selectedTeachers,
+          초등영어: (englishReference?.selectedTeachers['초등영어'] || []).map(item => ({ ...item })),
+          초등수학: (grade5Reference?.selectedTeachers['초등수학'] || []).map(item => ({ ...item })),
+          국어: (grade5Reference?.selectedTeachers['국어'] || []).map(item => ({ ...item })),
         },
       };
     }
@@ -631,9 +714,7 @@ function App() {
           grades: classLabel || grades.join('·'),
           names: isFixedClass ? [] : subjectEntries.map(entry => entry.studentName),
           isFixedClass,
-          notes: subject === '초등영어' && subjectEntries.some(entry => entry.studentName === '김주원(5)')
-            ? [subjectEntries[0]?.day === '목' ? '김주원: 초5반 합반 가능' : '김주원: 초등4 1반']
-            : [],
+          notes: [],
         };
       });
     };
