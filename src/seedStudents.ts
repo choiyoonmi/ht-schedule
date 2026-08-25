@@ -1012,6 +1012,11 @@ export const SEED_STUDENTS = [
     "selectedTeachers": {
       "초등수학": [
         {
+          "teacherId": "elem_math_1",
+          "day": "월",
+          "hour": 14
+        },
+        {
           "teacherId": "elem_math_2",
           "day": "월",
           "hour": 15
@@ -1341,6 +1346,11 @@ export const SEED_STUDENTS = [
     "grade": 3,
     "selectedTeachers": {
       "초등수학": [
+        {
+          "teacherId": "elem_math_1",
+          "day": "월",
+          "hour": 14
+        },
         {
           "teacherId": "elem_math_2",
           "day": "월",
@@ -1768,6 +1778,11 @@ export const SEED_STUDENTS = [
           "teacherId": "elem_math_1",
           "day": "월",
           "hour": 17
+        },
+        {
+          "teacherId": "elem_math_2",
+          "day": "화",
+          "hour": 14
         },
         {
           "teacherId": "elem_math_2",
