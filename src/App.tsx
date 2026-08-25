@@ -214,7 +214,7 @@ function migrateScheduleCorrections(students: Student[]): Student[] {
       { teacherId: 'elem_eng_2', day: '금', hour: 14 },
     ],
     초등수학: [
-      { teacherId: 'elem_math_2', day: '월', hour: 16 },
+      { teacherId: 'elem_math_1', day: '월', hour: 16 },
       { teacherId: 'elem_math_1', day: '화', hour: 15 },
       { teacherId: 'elem_math_1', day: '화', hour: 16 },
       { teacherId: 'elem_math_1', day: '목', hour: 16 },
@@ -293,23 +293,23 @@ function migrateScheduleCorrections(students: Student[]): Student[] {
       const math: TeacherSelection[] = isEnglish4Class
         ? [
             { teacherId: 'elem_math_2', day: '월', hour: 14 },
-            { teacherId: 'elem_math_2', day: '화', hour: 15 },
-            { teacherId: 'elem_math_2', day: '수', hour: 14 },
-            { teacherId: 'elem_math_1', day: '목', hour: 15 },
+            { teacherId: 'elem_math_1', day: '화', hour: 15 },
+            { teacherId: 'elem_math_1', day: '수', hour: 14 },
             { teacherId: 'elem_math_2', day: '금', hour: 14 },
+            { teacherId: 'elem_math_1', day: '금', hour: 15 },
           ]
         : isPhonics2
         ? [
             { teacherId: 'elem_math_2', day: '월', hour: 14 },
-            { teacherId: 'elem_math_2', day: '화', hour: 15 },
-            { teacherId: 'elem_math_2', day: '수', hour: 14 },
-            { teacherId: 'elem_math_1', day: '목', hour: 15 },
+            { teacherId: 'elem_math_1', day: '화', hour: 15 },
+            { teacherId: 'elem_math_1', day: '수', hour: 14 },
+            { teacherId: 'elem_math_1', day: '금', hour: 15 },
             { teacherId: 'elem_math_2', day: '금', hour: 16 },
           ]
         : [
             { teacherId: 'elem_math_2', day: '월', hour: 14 },
-            { teacherId: 'elem_math_2', day: '화', hour: 16 },
-            { teacherId: 'elem_math_2', day: '수', hour: 14 },
+            { teacherId: 'elem_math_1', day: '화', hour: 16 },
+            { teacherId: 'elem_math_1', day: '수', hour: 14 },
             { teacherId: 'elem_math_1', day: '목', hour: 16 },
             { teacherId: 'elem_math_2', day: '금', hour: 14 },
           ];
@@ -330,7 +330,7 @@ function migrateScheduleCorrections(students: Student[]): Student[] {
       const homework: TeacherSelection[] = isEnglish4Class || isPhonics2
         ? [
             { teacherId: '', day: '월', hour: 15 },
-            { teacherId: '', day: '금', hour: 15 },
+            { teacherId: '', day: '목', hour: 15 },
           ]
         : [
             { teacherId: '', day: '월', hour: 16 },
@@ -347,16 +347,17 @@ function migrateScheduleCorrections(students: Student[]): Student[] {
 
     if (student.name === '배소이' || student.name === '이준희') {
       const homework = (student.selectedTeachers['숙제반'] || []).filter(selection =>
-        !((selection.day === '월' || selection.day === '금') && selection.hour === 16)
+        !((selection.day === '월' || selection.day === '금') && selection.hour === 16) &&
+        !(selection.day === '금' && selection.hour === 15)
       );
-      const hasFridayHomework15 = homework.some(selection => selection.day === '금' && selection.hour === 15);
+      const hasThursdayHomework15 = homework.some(selection => selection.day === '목' && selection.hour === 15);
       const korean: TeacherSelection[] = [
         { teacherId: 'korean_1', day: '목', hour: 14 },
         { teacherId: 'korean_1', day: '금', hour: 16 },
       ];
       const completedHomework = [
         ...homework,
-        ...(hasFridayHomework15 ? [] : [{ teacherId: '', day: '금' as DayOfWeek, hour: 15 }]),
+        ...(hasThursdayHomework15 ? [] : [{ teacherId: '', day: '목' as DayOfWeek, hour: 15 }]),
       ];
       return {
         ...student,
@@ -371,10 +372,10 @@ function migrateScheduleCorrections(students: Student[]): Student[] {
           // 초2도 17시에 하원하므로 17:00 행에는 수업을 두지 않는다.
           // 영어·국어는 그대로 두고 수학 한 칸만 화요일 15시로 이동한다.
           초등수학: [
-            { teacherId: 'elem_math_2', day: '월', hour: 15 },
-            { teacherId: 'elem_math_2', day: '월', hour: 16 },
             { teacherId: 'elem_math_2', day: '화', hour: 15 },
-            { teacherId: 'elem_math_1', day: '목', hour: 15 },
+            { teacherId: 'elem_math_2', day: '화', hour: 16 },
+            { teacherId: 'elem_math_2', day: '목', hour: 16 },
+            { teacherId: 'elem_math_2', day: '금', hour: 15 },
           ],
           국어: korean,
           숙제반: completedHomework,
@@ -410,9 +411,9 @@ function migrateScheduleCorrections(students: Student[]): Student[] {
           초등수학: isClassOne
             ? [
                 { teacherId: 'elem_math_2', day: '월', hour: 16 },
-                { teacherId: 'elem_math_2', day: '수', hour: 16 },
-                { teacherId: 'elem_math_2', day: '목', hour: 15 },
-                { teacherId: 'elem_math_2', day: '금', hour: 16 },
+                { teacherId: 'elem_math_1', day: '수', hour: 16 },
+                { teacherId: 'elem_math_1', day: '목', hour: 15 },
+                { teacherId: 'elem_math_1', day: '금', hour: 16 },
               ]
             : [
                 { teacherId: 'elem_math_1', day: '월', hour: 15 },
@@ -444,15 +445,25 @@ function migrateScheduleCorrections(students: Student[]): Student[] {
           ...student.selectedTeachers,
           초등수학: (student.selectedTeachers['초등수학'] || []).map(selection =>
             selection.day === '화' && selection.hour === 15
-              ? { ...selection, hour: 14, teacherId: 'elem_math_2' }
-              : selection
+              ? { ...selection, hour: 14, teacherId: 'elem_math_1' }
+              : selection.day === '월' && selection.hour === 15
+                ? { ...selection, teacherId: 'elem_math_2' }
+              : selection.day === '금' && selection.hour === 15
+                ? { ...selection, hour: 14, teacherId: 'elem_math_1' }
+                : selection
           ),
           국어: (student.selectedTeachers['국어'] || []).map(selection =>
             (selection.day === '수' || selection.day === '목') && selection.hour === 14
               ? { ...selection, day: '화', hour: 15 }
               : selection
           ),
-          숙제반: homework,
+          숙제반: [
+            ...homework.filter(selection => !(
+              (selection.day === '금' && selection.hour === 14) ||
+              (selection.day === '금' && selection.hour === 15)
+            )),
+            { teacherId: '', day: '금', hour: 15 },
+          ],
         },
       };
     }
@@ -466,8 +477,16 @@ function migrateScheduleCorrections(students: Student[]): Student[] {
         selectedTeachers: {
           ...student.selectedTeachers,
           초등영어: (englishReference?.selectedTeachers['초등영어'] || []).map(item => ({ ...item })),
-          초등수학: (grade5Reference?.selectedTeachers['초등수학'] || []).map(item => ({ ...item })),
+          초등수학: (grade5Reference?.selectedTeachers['초등수학'] || []).map(item =>
+            item.day === '수' && (item.hour === 14 || item.hour === 15)
+              ? { ...item, hour: 17, teacherId: 'elem_math_2' }
+              : { ...item }
+          ),
           국어: (grade5Reference?.selectedTeachers['국어'] || []).map(item => ({ ...item })),
+          숙제반: [
+            ...(student.selectedTeachers['숙제반'] || []).filter(item => !(item.day === '수' && item.hour === 15)),
+            { teacherId: '', day: '수', hour: 15 },
+          ],
         },
       };
     }
@@ -478,18 +497,24 @@ function migrateScheduleCorrections(students: Student[]): Student[] {
       selectedTeachers: {
         ...student.selectedTeachers,
         초등수학: (student.selectedTeachers['초등수학'] || []).map(selection =>
-          selection.day === '수' && selection.hour === 14 ? { ...selection, hour: 15 } : selection
+          selection.day === '수' && (selection.hour === 14 || selection.hour === 15)
+            ? { ...selection, hour: 17, teacherId: 'elem_math_2' }
+            : selection
         ),
         국어: (student.selectedTeachers['국어'] || []).map(selection =>
           selection.day === '수' && selection.hour === 15 ? { ...selection, hour: 14 } : selection
         ),
+        숙제반: [
+          ...(student.selectedTeachers['숙제반'] || []).filter(selection => !(selection.day === '수' && selection.hour === 15)),
+          { teacherId: '', day: '수', hour: 15 },
+        ],
       },
     };
     });
 }
 
 // 시드 명단 버전. 이 값을 바꿔서 배포하면 모든 브라우저가 새 명단으로 자동 갱신됨.
-const SEED_VERSION = '2026-08-2학기-블록v13-grade23-home5';
+const SEED_VERSION = '2026-08-2학기-블록v16-math-teacher-alternating';
 
 function App() {
   const [currentView, setCurrentView] = useState<'dashboard' | 'teachers' | 'students'>('dashboard');
