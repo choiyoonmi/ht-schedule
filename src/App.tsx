@@ -396,35 +396,41 @@ function App() {
 
   // ===== 선생님별 시간표 =====
   if (currentView === 'teachers') {
-    const HOURS = [14, 15, 16, 17];
-    type Cell = { subject: string; grades: Set<number>; names: string[] };
+    // 초등 2시 ~ 중등·고등 8시까지 한 표에
+    const HOURS = [14, 15, 16, 17, 18, 19, 20];
+    type Cell = { subject: string; grades: Set<string>; names: string[] };
+    // 선생님 한 분이 초등·중등 아이디를 따로 갖고 있어서 '사람' 기준으로 묶는다
     const grid: Record<string, Record<string, Cell>> = {};
+    const divTag = (d: Division, g: number) =>
+      d === '유치부' ? '유치' : d === '초등부' ? `초${g}` : d === '중등부' ? `중${g}` : `고${g}`;
     for (const st of students) {
       for (const subj in st.selectedTeachers) {
         for (const e of st.selectedTeachers[subj]) {
-          const tid = e.teacherId || '__hw__';
+          const who = e.teacherId ? (TEACHERS.find(t => t.id === e.teacherId)?.name || e.teacherId) : '숙제반';
           const key = `${e.day}|${e.hour}`;
-          (grid[tid] = grid[tid] || {});
-          const c = (grid[tid][key] = grid[tid][key] || { subject: subj, grades: new Set(), names: [] });
-          c.grades.add(st.grade); c.names.push(st.name);
+          (grid[who] = grid[who] || {});
+          const c = (grid[who][key] = grid[who][key] || { subject: subj, grades: new Set(), names: [] });
+          c.grades.add(divTag(st.division, st.grade)); c.names.push(st.name);
         }
       }
     }
-    const tname = (id: string) => id === '__hw__' ? '숙제반' : (TEACHERS.find(t => t.id === id)?.name || id);
-    const gLabel = (gs: Set<number>) => Array.from(gs).sort((a,b)=>a-b).map(g => g===0?'유치':`초${g}`).join('·');
+    const tname = (who: string) => who;
+    const gLabel = (gs: Set<string>) => Array.from(gs).sort().join('·');
     // 구글시트 '국영수전체시간표'와 같은 열 순서 — 요일마다 이 열들이 반복된다
     const ALL_COLS = [
-      { id: 'elem_eng_3', label: '영어 부T' },
-      { id: 'elem_eng_2', label: '영어 공T' },
-      { id: 'elem_eng_4', label: '영어 은영T' },
-      { id: 'elem_eng_1', label: '영어 KrisT' },
-      { id: 'elem_eng_5', label: '영어 클리닉' },
-      { id: 'korean_1',   label: '국어 원T' },
-      { id: 'elem_math_1', label: '수학 문소현' },
-      { id: 'elem_math_2', label: '수학 조교' },
-      { id: '__hw__',     label: '숙제반' },
+      { id: '부원장', label: '영어 부T' },
+      { id: '공',     label: '영어 공T' },
+      { id: '박은영', label: '영어 은영T' },
+      { id: 'Kris',   label: '영어 KrisT' },
+      { id: '클리닉', label: '영어 클리닉' },
+      { id: '문원영', label: '국어 원T' },
+      { id: '문소현', label: '수학 문소현' },
+      { id: '조교',   label: '수학 조교' },
+      { id: '숙제반', label: '숙제반' },
     ];
     const cols = ALL_COLS.filter(c => grid[c.id]);
+    // 아무도 수업이 없는 시간대는 행에서 뺀다
+    const usedHours = HOURS.filter(h => cols.some(c => DAYS.some(d => grid[c.id][`${d}|${h}`])));
     const ttHead: CSSProperties = {
       border: '1px solid #b6bec7', padding: '5px 4px', fontSize: '11px',
       fontWeight: 'bold', textAlign: 'center',
@@ -472,7 +478,7 @@ function App() {
                 </tr>
               </thead>
               <tbody>
-                {HOURS.map(h => (
+                {usedHours.map(h => (
                   <tr key={h}>
                     <th style={{...ttHead, background:'#fff', fontSize:'12px'}}>{h-12}시</th>
                     {DAYS.map((d, di) => cols.map((c, ci) => {
