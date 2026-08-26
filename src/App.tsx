@@ -139,8 +139,8 @@ function validateSchedule(students: Student[]): string[] {
       for (const e of st.selectedTeachers[subj]) {
         const tid = e.teacherId;
         if (!tid || tid === 'elem_eng_5') continue; // 숙제·클리닉 제외
-        // 영어·국어는 한 교사=한 반(합반 가능). 수학만 학년별로 구분(학년 섞임 방지).
-        const oneClass = subj.includes('영어') || subj === '국어';
+        // 영어·국어·중등수학은 한 교사=한 반(합반 가능). 학년별 분반은 초등수학만.
+        const oneClass = subj.includes('영어') || subj === '국어' || subj === '중등수학';
         const cls = oneClass ? `${subj}|${tid}` : `${st.division}${st.grade}-${subj}`;
         const key = `${e.day}|${e.hour}|${tid}`;
         (slot[key] = slot[key] || new Set()).add(cls);
@@ -181,7 +181,7 @@ function validateSchedule(students: Student[]): string[] {
 }
 
 // 시드 명단 버전. 이 값을 바꿔서 배포하면 모든 브라우저가 새 명단으로 자동 갱신됨.
-const SEED_VERSION = '2026-08-25-시트기준-수학분반-v17';
+const SEED_VERSION = '2026-08-25-시트기준-중등포함-v18';
 
 function App() {
   const [currentView, setCurrentView] = useState<'dashboard' | 'students' | 'teachers'>('dashboard');
