@@ -180,8 +180,12 @@ function validateSchedule(students: Student[]): string[] {
   return warnings;
 }
 
-// 시드 명단 버전. 이 값을 바꿔서 배포하면 모든 브라우저가 새 명단으로 자동 갱신됨.
+// 시드 명단 버전. 새 시드가 올라오면 화면 위에 안내만 뜨고, 바꿀지는 사용자가 고른다.
 const SEED_VERSION = '2026-08-25-시트기준-중등포함-v18';
+
+// 공용 저장소(구글시트 + Apps Script) — 선생님 누구나 같은 시간표를 보고 저장한다.
+const SERVER_URL = 'https://script.google.com/macros/s/AKfycbwfjo6hlMaz0k48AnrYq4LJmrjF69kwQSfZTK8o6MoeX57_9BxYkF9H7DSODYyMX4ih6A/exec';
+type SyncStatus = 'loading' | 'ok' | 'saving' | 'offline' | 'conflict' | 'empty';
 
 function App() {
   const [currentView, setCurrentView] = useState<'dashboard' | 'students' | 'teachers'>('dashboard');
@@ -310,6 +314,77 @@ function App() {
     };
     r.readAsText(file);
   };
+
+  // ── 공용 저장소: 받아오기 / 올리기 / 남이 바꿨는지 확인 ──────────────
+  const [me, setMe] = useState<string>(() => localStorage.getItem('happytree_me') || '');
+  const [sync, setSync] = useState<{ status: SyncStatus; at: string; by: string; err?: string }>(
+    { status: 'loading', at: '', by: '' });
+  const revRef = useRef<number>(-1);      // 내가 받아간 서버 버전
+  const pendingRef = useRef(false);       // 아직 서버에 못 올린 편집이 있다
+  const applyingRef = useRef(false);      // 서버에서 받아 적용하는 중(저장 트리거 방지)
+  const saveTimer = useRef<number | undefined>(undefined);
+
+  const pullNow = async () => {
+    try {
+      const r = await fetch(`${SERVER_URL}?action=load`, { redirect: 'follow' });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error || '서버 오류');
+      revRef.current = d.rev;
+      if (d.students && d.students.length) {
+        applyingRef.current = true;
+        setStudents(d.students);
+        pendingRef.current = false;
+        setSync({ status: 'ok', at: d.at, by: d.by });
+      } else {
+        setSync({ status: 'empty', at: d.at, by: d.by });   // 서버가 아직 비어 있음
+      }
+    } catch (e) {
+      setSync({ status: 'offline', at: '', by: '', err: String(e) });
+    }
+  };
+
+  const pushNow = async (force = false) => {
+    setSync(s => ({ ...s, status: 'saving' }));
+    try {
+      const r = await fetch(SERVER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },   // 미리검사(preflight) 피하기
+        redirect: 'follow',
+        body: JSON.stringify({ students, rev: revRef.current, by: me || '이름없음', force }),
+      });
+      const d = await r.json();
+      if (d.conflict) { setSync({ status: 'conflict', at: d.at, by: d.by }); return; }
+      if (!d.ok) throw new Error(d.error || '저장 실패');
+      revRef.current = d.rev;
+      pendingRef.current = false;
+      setSync({ status: 'ok', at: d.at, by: d.by });
+    } catch (e) {
+      setSync(s => ({ ...s, status: 'offline', err: String(e) }));
+    }
+  };
+
+  useEffect(() => { pullNow(); }, []);                     // 시작할 때 서버에서 받아온다
+
+  useEffect(() => {                                        // 편집하면 1.5초 뒤 자동 저장
+    if (applyingRef.current) { applyingRef.current = false; return; }
+    if (sync.status === 'loading') return;                 // 첫 로드 전에는 올리지 않는다
+    pendingRef.current = true;
+    window.clearTimeout(saveTimer.current);
+    saveTimer.current = window.setTimeout(() => { pushNow(); }, 1500);
+    return () => window.clearTimeout(saveTimer.current);
+  }, [students]);
+
+  useEffect(() => {                                        // 20초마다 다른 선생님이 저장했는지 확인
+    const t = window.setInterval(async () => {
+      if (pendingRef.current || sync.status === 'conflict' || sync.status === 'saving') return;
+      try {
+        const r = await fetch(`${SERVER_URL}?action=rev`, { redirect: 'follow' });
+        const d = await r.json();
+        if (d.ok && d.rev !== revRef.current) pullNow();
+      } catch { /* 연결 안 되면 다음에 다시 */ }
+    }, 20000);
+    return () => window.clearInterval(t);
+  }, [sync.status]);
 
   const updateVocab = (studentId: string, value: string) => {
     setStudents(prev => prev.map(s => s.id === studentId ? { ...s, vocab: value } : s));
@@ -634,7 +709,39 @@ function App() {
             {scheduleWarnings.length === 0
               ? <span className="no-print" style={{fontSize:'12px', color:'#2e7d32', fontWeight:'bold'}}>✅ 이상 없음</span>
               : <span className="no-print" style={{fontSize:'13px', color:'#fff', fontWeight:'bold', background:'#d32f2f', borderRadius:'12px', padding:'3px 12px'}}>⚠️ 경고 {scheduleWarnings.length}건</span>}
+            <span className="no-print" style={{marginLeft:'auto', display:'flex', alignItems:'center', gap:'8px'}}>
+              <input
+                type="text" value={me}
+                onChange={(ev) => { setMe(ev.target.value); localStorage.setItem('happytree_me', ev.target.value); }}
+                placeholder="선생님 성함"
+                title="누가 저장했는지 다른 선생님께 표시됩니다"
+                style={{width:'92px', padding:'5px 8px', fontSize:'12px', border:'1px solid #ccc', borderRadius:'6px'}}
+              />
+              {sync.status === 'ok' && <span style={{fontSize:'12px', color:'#2e7d32', fontWeight:'bold'}} title={`마지막 저장 ${sync.at}`}>☁️ 함께 보는 시간표 · 저장됨</span>}
+              {sync.status === 'saving' && <span style={{fontSize:'12px', color:'#1976D2', fontWeight:'bold'}}>⏳ 저장 중…</span>}
+              {sync.status === 'loading' && <span style={{fontSize:'12px', color:'#888'}}>☁️ 불러오는 중…</span>}
+              {sync.status === 'offline' && (
+                <span style={{fontSize:'12px', color:'#fff', background:'#F57F17', borderRadius:'12px', padding:'3px 10px', fontWeight:'bold'}}>
+                  ⚠️ 서버 연결 안 됨 — 이 기기에만 저장됨
+                  <button onClick={() => pullNow()} style={{marginLeft:'8px', padding:'2px 8px', fontSize:'11px', border:'none', borderRadius:'4px', cursor:'pointer'}}>다시 시도</button>
+                </span>
+              )}
+              {sync.status === 'empty' && (
+                <button onClick={() => pushNow(true)} style={{padding:'5px 12px', borderRadius:'6px', border:'none', cursor:'pointer', fontSize:'12px', fontWeight:'bold', background:'#2e7d32', color:'#fff'}}>
+                  ☁️ 이 시간표를 공용 저장소에 올리기
+                </button>
+              )}
+            </span>
           </div>
+          {sync.status === 'conflict' && (
+            <div className="no-print" style={{background:'#FFF3E0', border:'2px solid #F57C00', borderRadius:'8px', padding:'10px 14px', marginBottom:'10px', display:'flex', alignItems:'center', gap:'12px', flexWrap:'wrap'}}>
+              <span style={{fontSize:'13px', color:'#E65100'}}>
+                <b>{sync.by || '다른 선생님'}</b> 님이 {sync.at} 에 저장했습니다. 지금 화면과 서버 내용이 다릅니다.
+              </span>
+              <button onClick={() => pullNow()} style={{padding:'6px 14px', borderRadius:'6px', border:'none', cursor:'pointer', fontSize:'12px', fontWeight:'bold', background:'#F57C00', color:'#fff'}}>서버 것으로 보기</button>
+              <button onClick={() => { backupNow(); pushNow(true); }} style={{padding:'6px 14px', borderRadius:'6px', border:'1px solid #F57C00', cursor:'pointer', fontSize:'12px', fontWeight:'bold', background:'#fff', color:'#E65100'}}>내 것으로 덮어쓰기</button>
+            </div>
+          )}
           {seedNotice && (
             <div className="no-print" style={{background:'#E3F2FD', border:'2px solid #1976D2', borderRadius:'8px', padding:'10px 14px', marginBottom:'10px', display:'flex', alignItems:'center', gap:'12px', flexWrap:'wrap'}}>
               <span style={{fontSize:'13px', color:'#0D47A1'}}>
