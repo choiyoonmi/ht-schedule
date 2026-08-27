@@ -319,21 +319,38 @@ function App() {
   const [me, setMe] = useState<string>(() => localStorage.getItem('happytree_me') || '');
   const [sync, setSync] = useState<{ status: SyncStatus; at: string; by: string; err?: string }>(
     { status: 'loading', at: '', by: '' });
+  const [serverCopy, setServerCopy] = useState<{ students: Student[]; at: string; by: string } | null>(null);
   const revRef = useRef<number>(-1);      // 내가 받아간 서버 버전
   const pendingRef = useRef(false);       // 아직 서버에 못 올린 편집이 있다
   const applyingRef = useRef(false);      // 서버에서 받아 적용하는 중(저장 트리거 방지)
   const saveTimer = useRef<number | undefined>(undefined);
 
-  const pullNow = async () => {
+  // 두 시간표가 같은 내용인지 (키 순서·형식 차이는 무시)
+  const signature = (list: Student[]) => list.map(s =>
+    `${s.name}|${s.division}${s.grade}|${s.vocab || ''}|` +
+    Object.keys(s.selectedTeachers || {}).sort().map(sub =>
+      (s.selectedTeachers[sub] || []).map(c => `${sub}@${c.teacherId}@${c.day}@${c.hour}`).sort().join(',')
+    ).join(';')
+  ).sort().join('\n');
+
+  const pullNow = async (opts: { firstTime?: boolean } = {}) => {
     try {
       const r = await fetch(`${SERVER_URL}?action=load`, { redirect: 'follow' });
       const d = await r.json();
       if (!d.ok) throw new Error(d.error || '서버 오류');
       revRef.current = d.rev;
       if (d.students && d.students.length) {
+        // ★첫 접속인데 이 기기에 저장해둔 것과 서버 것이 다르면 말없이 덮어쓰지 않는다
+        const hadLocal = !!localStorage.getItem('happytree_students');
+        if (opts.firstTime && hadLocal && signature(d.students) !== signature(students)) {
+          setServerCopy({ students: d.students, at: d.at, by: d.by });
+          setSync({ status: 'conflict', at: d.at, by: d.by });
+          return;
+        }
         applyingRef.current = true;
         setStudents(d.students);
         pendingRef.current = false;
+        setServerCopy(null);
         setSync({ status: 'ok', at: d.at, by: d.by });
       } else {
         setSync({ status: 'empty', at: d.at, by: d.by });   // 서버가 아직 비어 있음
@@ -363,7 +380,7 @@ function App() {
     }
   };
 
-  useEffect(() => { pullNow(); }, []);                     // 시작할 때 서버에서 받아온다
+  useEffect(() => { pullNow({ firstTime: true }); }, []);                     // 시작할 때 서버에서 받아온다
 
   useEffect(() => {                                        // 편집하면 1.5초 뒤 자동 저장
     if (applyingRef.current) { applyingRef.current = false; return; }
@@ -736,10 +753,14 @@ function App() {
           {sync.status === 'conflict' && (
             <div className="no-print" style={{background:'#FFF3E0', border:'2px solid #F57C00', borderRadius:'8px', padding:'10px 14px', marginBottom:'10px', display:'flex', alignItems:'center', gap:'12px', flexWrap:'wrap'}}>
               <span style={{fontSize:'13px', color:'#E65100'}}>
-                <b>{sync.by || '다른 선생님'}</b> 님이 {sync.at} 에 저장했습니다. 지금 화면과 서버 내용이 다릅니다.
+                {serverCopy
+                  ? <>서버에 저장된 시간표와 <b>이 기기에 저장해두신 시간표가 다릅니다.</b> 어느 쪽을 쓸지 골라주세요 — 고르기 전까지는 아무것도 바꾸지 않습니다.</>
+                  : <><b>{sync.by || '다른 선생님'}</b> 님이 {sync.at} 에 저장했습니다. 지금 화면과 서버 내용이 다릅니다.</>}
+                {sync.at && <span style={{color:'#8D6E63'}}> (서버 저장: {sync.at} {sync.by})</span>}
               </span>
-              <button onClick={() => pullNow()} style={{padding:'6px 14px', borderRadius:'6px', border:'none', cursor:'pointer', fontSize:'12px', fontWeight:'bold', background:'#F57C00', color:'#fff'}}>서버 것으로 보기</button>
-              <button onClick={() => { backupNow(); pushNow(true); }} style={{padding:'6px 14px', borderRadius:'6px', border:'1px solid #F57C00', cursor:'pointer', fontSize:'12px', fontWeight:'bold', background:'#fff', color:'#E65100'}}>내 것으로 덮어쓰기</button>
+              <button onClick={() => { if (serverCopy) { backupNow(); applyingRef.current = true; setStudents(serverCopy.students); pendingRef.current = false; setServerCopy(null); setSync({ status: 'ok', at: serverCopy.at, by: serverCopy.by }); } else { pullNow(); } }}
+                style={{padding:'6px 14px', borderRadius:'6px', border:'none', cursor:'pointer', fontSize:'12px', fontWeight:'bold', background:'#F57C00', color:'#fff'}}>서버 것으로 보기</button>
+              <button onClick={() => { backupNow(); setServerCopy(null); pushNow(true); }} style={{padding:'6px 14px', borderRadius:'6px', border:'1px solid #F57C00', cursor:'pointer', fontSize:'12px', fontWeight:'bold', background:'#fff', color:'#E65100'}}>내 것을 서버에 올리기</button>
             </div>
           )}
           {seedNotice && (
