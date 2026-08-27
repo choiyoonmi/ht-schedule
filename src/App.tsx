@@ -320,6 +320,7 @@ function App() {
   const [sync, setSync] = useState<{ status: SyncStatus; at: string; by: string; err?: string }>(
     { status: 'loading', at: '', by: '' });
   const [serverCopy, setServerCopy] = useState<{ students: Student[]; at: string; by: string } | null>(null);
+  const [replacedNotice, setReplacedNotice] = useState(false);   // 예전 자료를 서버 것으로 맞췄음
   const revRef = useRef<number>(-1);      // 내가 받아간 서버 버전
   const pendingRef = useRef(false);       // 아직 서버에 못 올린 편집이 있다
   const applyingRef = useRef(false);      // 서버에서 받아 적용하는 중(저장 트리거 방지)
@@ -340,9 +341,16 @@ function App() {
       if (!d.ok) throw new Error(d.error || '서버 오류');
       revRef.current = d.rev;
       if (d.students && d.students.length) {
-        // ★첫 접속인데 이 기기에 저장해둔 것과 서버 것이 다르면 말없이 덮어쓰지 않는다
         const hadLocal = !!localStorage.getItem('happytree_students');
-        if (opts.firstTime && hadLocal && signature(d.students) !== signature(students)) {
+        const syncedBefore = localStorage.getItem('happytree_rev') !== null;
+        const differs = signature(d.students) !== signature(students);
+        // 한 번도 공용 저장소를 쓴 적 없는 기기(예전 자료만 있는 상태)면 서버 것으로 맞춘다.
+        // 그래야 선생님들 화면이 저절로 같아진다. 예전 자료는 백업해두고 알려준다.
+        if (opts.firstTime && hadLocal && differs && !syncedBefore) {
+          backupNow();
+          setReplacedNotice(true);
+        } else if (opts.firstTime && hadLocal && differs && syncedBefore) {
+          // 이 기기에서 공용 저장소를 쓰다가 인터넷이 끊긴 사이 고친 경우 → 물어본다
           setServerCopy({ students: d.students, at: d.at, by: d.by });
           setSync({ status: 'conflict', at: d.at, by: d.by });
           return;
@@ -351,6 +359,7 @@ function App() {
         setStudents(d.students);
         pendingRef.current = false;
         setServerCopy(null);
+        localStorage.setItem('happytree_rev', String(d.rev));
         setSync({ status: 'ok', at: d.at, by: d.by });
       } else {
         setSync({ status: 'empty', at: d.at, by: d.by });   // 서버가 아직 비어 있음
@@ -374,6 +383,7 @@ function App() {
       if (!d.ok) throw new Error(d.error || '저장 실패');
       revRef.current = d.rev;
       pendingRef.current = false;
+      localStorage.setItem('happytree_rev', String(d.rev));
       setSync({ status: 'ok', at: d.at, by: d.by });
     } catch (e) {
       setSync(s => ({ ...s, status: 'offline', err: String(e) }));
@@ -734,7 +744,14 @@ function App() {
                 title="누가 저장했는지 다른 선생님께 표시됩니다"
                 style={{width:'92px', padding:'5px 8px', fontSize:'12px', border:'1px solid #ccc', borderRadius:'6px'}}
               />
-              {sync.status === 'ok' && <span style={{fontSize:'12px', color:'#2e7d32', fontWeight:'bold'}} title={`마지막 저장 ${sync.at}`}>☁️ 함께 보는 시간표 · 저장됨</span>}
+              {sync.status === 'ok' && (
+                <span style={{fontSize:'12px', color:'#2e7d32', fontWeight:'bold'}}>
+                  ☁️ 함께 보는 시간표
+                  <span style={{fontWeight:'normal', color:'#666'}}> · 마지막 저장 {sync.at || '-'} {sync.by && `(${sync.by})`}</span>
+                </span>
+              )}
+              <button onClick={() => pullNow()} title="서버에서 최신 시간표를 지금 받아옵니다"
+                style={{padding:'5px 10px', borderRadius:'6px', border:'1px solid #bbb', cursor:'pointer', fontSize:'12px', background:'#fff'}}>🔄 새로 받기</button>
               {sync.status === 'saving' && <span style={{fontSize:'12px', color:'#1976D2', fontWeight:'bold'}}>⏳ 저장 중…</span>}
               {sync.status === 'loading' && <span style={{fontSize:'12px', color:'#888'}}>☁️ 불러오는 중…</span>}
               {sync.status === 'offline' && (
@@ -750,6 +767,15 @@ function App() {
               )}
             </span>
           </div>
+          {replacedNotice && (
+            <div className="no-print" style={{background:'#E8F5E9', border:'2px solid #2e7d32', borderRadius:'8px', padding:'10px 14px', marginBottom:'10px', display:'flex', alignItems:'center', gap:'12px', flexWrap:'wrap'}}>
+              <span style={{fontSize:'13px', color:'#1B5E20'}}>
+                이 기기에 남아 있던 <b>예전 시간표</b>를 <b>선생님들이 함께 보는 시간표</b>로 맞췄습니다. 예전 것은 백업해뒀습니다.
+              </span>
+              <button onClick={() => { restoreBackup(); setReplacedNotice(false); }} style={{padding:'6px 14px', borderRadius:'6px', border:'1px solid #2e7d32', cursor:'pointer', fontSize:'12px', fontWeight:'bold', background:'#fff', color:'#1B5E20'}}>↩️ 예전 것 보기</button>
+              <button onClick={() => setReplacedNotice(false)} style={{padding:'6px 14px', borderRadius:'6px', border:'none', cursor:'pointer', fontSize:'12px', fontWeight:'bold', background:'#2e7d32', color:'#fff'}}>확인</button>
+            </div>
+          )}
           {sync.status === 'conflict' && (
             <div className="no-print" style={{background:'#FFF3E0', border:'2px solid #F57C00', borderRadius:'8px', padding:'10px 14px', marginBottom:'10px', display:'flex', alignItems:'center', gap:'12px', flexWrap:'wrap'}}>
               <span style={{fontSize:'13px', color:'#E65100'}}>
