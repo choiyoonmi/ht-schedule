@@ -189,14 +189,25 @@ function App() {
 
   const [students, setStudents] = useState<Student[]>(() => {
     try {
-      const savedVer = localStorage.getItem('happytree_seed_version');
       const saved = localStorage.getItem('happytree_students');
       const parsed = saved ? JSON.parse(saved) : null;
-      // 시드 버전이 최신이고 저장된 학생이 있을 때만 저장본 사용, 아니면 최신 시드로 갱신
-      if (savedVer === SEED_VERSION && parsed && parsed.length) return parsed;
+      // ★저장한 시간표는 절대 자동으로 버리지 않는다.
+      //   새 시드가 배포돼도 저장본을 그대로 쓰고, 위에 안내만 띄운다.
+      if (parsed && parsed.length) return parsed;
       return SEED_STUDENTS as unknown as Student[];
     } catch {
       return SEED_STUDENTS as unknown as Student[];
+    }
+  });
+
+  // 새로 배포된 시간표가 있는데 저장본을 쓰고 있는 상태인지
+  const [seedNotice, setSeedNotice] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('happytree_students');
+      const ver = localStorage.getItem('happytree_seed_version');
+      return !!(saved && JSON.parse(saved).length && ver && ver !== SEED_VERSION);
+    } catch {
+      return false;
     }
   });
 
@@ -224,8 +235,12 @@ function App() {
   const [history, setHistory] = useState<Student[][]>([]); // 되돌리기용 편집 이력
   const [editMode, setEditMode] = useState<boolean>(false); // 편집 모드(수정하기 버튼으로 켜야 편집 가능)
 
+  // 저장본이 없을 때(첫 방문)만 시드 버전을 찍는다.
+  // 저장본이 있으면 버전을 그대로 둬서, 위 안내가 원장님이 선택할 때까지 남아 있게 한다.
   useEffect(() => {
-    localStorage.setItem('happytree_seed_version', SEED_VERSION);
+    if (!localStorage.getItem('happytree_students')) {
+      localStorage.setItem('happytree_seed_version', SEED_VERSION);
+    }
   }, []);
 
   useEffect(() => {
@@ -248,6 +263,54 @@ function App() {
     setHistory(history.slice(0, -1));
     setCopied(null);
   };
+  // ── 저장본 보호: 백업 / 새 시간표 불러오기 / 파일로 내보내고 들여오기 ──
+  const backupNow = () => {
+    localStorage.setItem('happytree_backup', JSON.stringify(students));
+    localStorage.setItem('happytree_backup_at', new Date().toLocaleString('ko-KR'));
+  };
+  const loadSeed = () => {
+    if (!confirm('새로 배포된 시간표로 바꿉니다.\n지금 시간표는 백업해두니 ↩️되돌리기로 복구할 수 있습니다.\n계속할까요?')) return;
+    backupNow();
+    setStudents(SEED_STUDENTS as unknown as Student[]);
+    localStorage.setItem('happytree_seed_version', SEED_VERSION);
+    setSeedNotice(false);
+  };
+  const keepMine = () => {
+    localStorage.setItem('happytree_seed_version', SEED_VERSION);
+    setSeedNotice(false);
+  };
+  const restoreBackup = () => {
+    const b = localStorage.getItem('happytree_backup');
+    if (!b) { alert('백업이 없습니다.'); return; }
+    const at = localStorage.getItem('happytree_backup_at') || '';
+    if (!confirm(`${at} 에 백업한 시간표로 되돌립니다.\n지금 화면의 시간표는 사라집니다. 계속할까요?`)) return;
+    backupNow();
+    setStudents(JSON.parse(b));
+  };
+  const exportFile = () => {
+    const blob = new Blob([JSON.stringify(students, null, 1)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `해피트리_시간표_${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+  const importFile = (file: File) => {
+    const r = new FileReader();
+    r.onload = () => {
+      try {
+        const data = JSON.parse(String(r.result));
+        if (!Array.isArray(data) || !data.length) throw new Error('형식이 다릅니다');
+        if (!confirm(`${data.length}명짜리 시간표를 불러옵니다.\n지금 시간표는 백업해둡니다. 계속할까요?`)) return;
+        backupNow();
+        setStudents(data);
+      } catch {
+        alert('시간표 파일이 아닙니다.');
+      }
+    };
+    r.readAsText(file);
+  };
+
   const updateVocab = (studentId: string, value: string) => {
     setStudents(prev => prev.map(s => s.id === studentId ? { ...s, vocab: value } : s));
   };
@@ -547,6 +610,16 @@ function App() {
               onClick={() => { setEditMode(false); setCopied(null); setTimeout(() => window.print(), 100); }}
               style={{padding:'7px 16px', borderRadius:'6px', border:'none', cursor:'pointer', fontSize:'13px', fontWeight:'bold', color:'#fff', background:'#1976D2'}}
             >🖨️ 인쇄</button>
+            <button className="no-print" onClick={exportFile} title="지금 시간표를 파일로 저장합니다 (다른 선생님께 전달하거나 백업용)"
+              style={{padding:'7px 12px', borderRadius:'6px', border:'1px solid #bbb', cursor:'pointer', fontSize:'12px', background:'#fff', color:'#333'}}>💾 파일로 저장</button>
+            <label className="no-print" title="파일로 저장해둔 시간표를 불러옵니다"
+              style={{padding:'7px 12px', borderRadius:'6px', border:'1px solid #bbb', cursor:'pointer', fontSize:'12px', background:'#fff', color:'#333'}}>
+              📂 파일 열기
+              <input type="file" accept="application/json,.json" style={{display:'none'}}
+                onChange={(ev) => { const f = ev.target.files?.[0]; if (f) importFile(f); ev.target.value = ''; }} />
+            </label>
+            <button className="no-print" onClick={restoreBackup} title="직전 시간표로 되돌립니다"
+              style={{padding:'7px 12px', borderRadius:'6px', border:'1px solid #bbb', cursor:'pointer', fontSize:'12px', background:'#fff', color:'#333'}}>↩️ 되돌리기</button>
             <input
               className="no-print"
               type="text"
@@ -562,6 +635,15 @@ function App() {
               ? <span className="no-print" style={{fontSize:'12px', color:'#2e7d32', fontWeight:'bold'}}>✅ 이상 없음</span>
               : <span className="no-print" style={{fontSize:'13px', color:'#fff', fontWeight:'bold', background:'#d32f2f', borderRadius:'12px', padding:'3px 12px'}}>⚠️ 경고 {scheduleWarnings.length}건</span>}
           </div>
+          {seedNotice && (
+            <div className="no-print" style={{background:'#E3F2FD', border:'2px solid #1976D2', borderRadius:'8px', padding:'10px 14px', marginBottom:'10px', display:'flex', alignItems:'center', gap:'12px', flexWrap:'wrap'}}>
+              <span style={{fontSize:'13px', color:'#0D47A1'}}>
+                <b>새로 만든 시간표가 올라와 있습니다.</b> 지금 화면은 <b>저장하신 시간표 그대로</b>입니다 — 바꿀지 말지 직접 고르세요.
+              </span>
+              <button onClick={loadSeed} style={{padding:'6px 14px', borderRadius:'6px', border:'none', cursor:'pointer', fontSize:'12px', fontWeight:'bold', background:'#1976D2', color:'#fff'}}>새 시간표로 바꾸기</button>
+              <button onClick={keepMine} style={{padding:'6px 14px', borderRadius:'6px', border:'1px solid #1976D2', cursor:'pointer', fontSize:'12px', fontWeight:'bold', background:'#fff', color:'#1976D2'}}>내 시간표 유지</button>
+            </div>
+          )}
           {scheduleWarnings.length > 0 && (
             <div className="no-print" style={{background:'#FFEBEE', border:'2px solid #d32f2f', borderRadius:'8px', padding:'10px 14px', marginBottom:'10px', maxHeight:'170px', overflowY:'auto'}}>
               <div style={{fontWeight:'bold', color:'#d32f2f', marginBottom:'6px'}}>⚠️ 시간표 경고 {scheduleWarnings.length}건 — 확인해 주세요</div>
@@ -592,8 +674,13 @@ function App() {
             <div style={styles.scheduleContainer}>
               {students.filter(s => !scheduleSearch.trim() || s.name.includes(scheduleSearch.trim())).map(student => {
                 const studentSchedule = schedule.filter(e => e.studentName === student.name);
-                const startHour = (student.division === '초등부' || student.division === '유치부') ? 14 : student.division === '중등부' ? 17 : 18;
-                const endHour = (student.division === '초등부' || student.division === '유치부') ? 18 : 21;
+                // 실제 수업 시간을 반드시 포함시킨다 — 부별 기본 시간대 밖의 수업(예: 중등생의 4시 국어)이
+                // 선생님별 표에는 보이는데 학생 카드에서만 빠지던 문제
+                const base = (student.division === '초등부' || student.division === '유치부')
+                  ? [14, 18] : student.division === '중등부' ? [17, 21] : [18, 21];
+                const actual = studentSchedule.map(e => e.hour);
+                const startHour = Math.min(base[0], ...(actual.length ? actual : [base[0]]));
+                const endHour = Math.max(base[1], ...(actual.length ? actual.map(h => h + 1) : [base[1]]));
 
                 return (
                   <div key={student.id} className="print-student" style={styles.studentScheduleSection}>
@@ -928,8 +1015,13 @@ function App() {
             <div style={styles.scheduleContainer}>
               {students.map(student => {
                 const studentSchedule = schedule.filter(e => e.studentName === student.name);
-                const startHour = (student.division === '초등부' || student.division === '유치부') ? 14 : student.division === '중등부' ? 17 : 18;
-                const endHour = (student.division === '초등부' || student.division === '유치부') ? 18 : 21;
+                // 실제 수업 시간을 반드시 포함시킨다 — 부별 기본 시간대 밖의 수업(예: 중등생의 4시 국어)이
+                // 선생님별 표에는 보이는데 학생 카드에서만 빠지던 문제
+                const base = (student.division === '초등부' || student.division === '유치부')
+                  ? [14, 18] : student.division === '중등부' ? [17, 21] : [18, 21];
+                const actual = studentSchedule.map(e => e.hour);
+                const startHour = Math.min(base[0], ...(actual.length ? actual : [base[0]]));
+                const endHour = Math.max(base[1], ...(actual.length ? actual.map(h => h + 1) : [base[1]]));
 
                 return (
                   <div key={student.id} style={styles.previewSection}>
