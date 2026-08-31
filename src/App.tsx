@@ -322,6 +322,9 @@ function App() {
   const [serverCopy, setServerCopy] = useState<{ students: Student[]; at: string; by: string } | null>(null);
   const [replacedNotice, setReplacedNotice] = useState(false);   // 예전 자료를 서버 것으로 맞췄음
   const revRef = useRef<number>(-1);      // 내가 받아간 서버 버전
+  const studentsRef = useRef<Student[]>(students);        // 타이머 안에서 최신 학생 목록 보기
+  const meRef = useRef<string>(me);
+  const syncedRef = useRef<Record<string, string>>({});   // 서버가 갖고 있는 내용(학생별)
   const pendingRef = useRef(false);       // 아직 서버에 못 올린 편집이 있다
   const applyingRef = useRef(false);      // 서버에서 받아 적용하는 중(저장 트리거 방지)
   const saveTimer = useRef<number | undefined>(undefined);
@@ -334,6 +337,22 @@ function App() {
     ).join(';')
   ).sort().join('\n');
 
+  const snapshotOf = (list: Student[]) => {
+    const m: Record<string, string> = {};
+    list.forEach(s2 => { m[s2.id] = JSON.stringify(s2); });
+    return m;
+  };
+  const applyServerList = (list: Student[], rev: number, at: string, by: string) => {
+    applyingRef.current = true;
+    setStudents(list);
+    syncedRef.current = snapshotOf(list);
+    revRef.current = rev;
+    pendingRef.current = false;
+    setServerCopy(null);
+    localStorage.setItem('happytree_rev', String(rev));
+    setSync({ status: 'ok', at, by });
+  };
+
   const pullNow = async (opts: { firstTime?: boolean } = {}) => {
     try {
       const r = await fetch(`${SERVER_URL}?action=load`, { redirect: 'follow' });
@@ -343,24 +362,16 @@ function App() {
       if (d.students && d.students.length) {
         const hadLocal = !!localStorage.getItem('happytree_students');
         const syncedBefore = localStorage.getItem('happytree_rev') !== null;
-        const differs = signature(d.students) !== signature(students);
-        // 한 번도 공용 저장소를 쓴 적 없는 기기(예전 자료만 있는 상태)면 서버 것으로 맞춘다.
-        // 그래야 선생님들 화면이 저절로 같아진다. 예전 자료는 백업해두고 알려준다.
+        const differs = signature(d.students) !== signature(studentsRef.current);
         if (opts.firstTime && hadLocal && differs && !syncedBefore) {
           backupNow();
           setReplacedNotice(true);
         } else if (opts.firstTime && hadLocal && differs && syncedBefore) {
-          // 이 기기에서 공용 저장소를 쓰다가 인터넷이 끊긴 사이 고친 경우 → 물어본다
           setServerCopy({ students: d.students, at: d.at, by: d.by });
           setSync({ status: 'conflict', at: d.at, by: d.by });
           return;
         }
-        applyingRef.current = true;
-        setStudents(d.students);
-        pendingRef.current = false;
-        setServerCopy(null);
-        localStorage.setItem('happytree_rev', String(d.rev));
-        setSync({ status: 'ok', at: d.at, by: d.by });
+        applyServerList(d.students, d.rev, d.at, d.by);
       } else {
         setSync({ status: 'empty', at: d.at, by: d.by });   // 서버가 아직 비어 있음
       }
@@ -369,27 +380,47 @@ function App() {
     }
   };
 
-  const pushNow = async (force = false) => {
-    setSync(s => ({ ...s, status: 'saving' }));
+  // 고친 학생만 보낸다 → 두 선생님이 서로 다른 학생을 고치면 부딪히지 않는다
+  const pushNow = async (whole = false) => {
+    const list = studentsRef.current;
+    const snap = syncedRef.current;
+    const changed = list.filter(s2 => JSON.stringify(s2) !== snap[s2.id]);
+    const deleted = Object.keys(snap).filter(id => !list.some(s2 => s2.id === id));
+    if (!whole && !changed.length && !deleted.length) {
+      pendingRef.current = false;
+      return;
+    }
+    setSync(s2 => ({ ...s2, status: 'saving' }));
     try {
+      const body = whole
+        ? { students: list, by: meRef.current || '이름없음', force: true }
+        : { mode: 'patch', changed, deleted, by: meRef.current || '이름없음' };
       const r = await fetch(SERVER_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },   // 미리검사(preflight) 피하기
         redirect: 'follow',
-        body: JSON.stringify({ students, rev: revRef.current, by: me || '이름없음', force }),
+        body: JSON.stringify(body),
       });
       const d = await r.json();
       if (d.conflict) { setSync({ status: 'conflict', at: d.at, by: d.by }); return; }
       if (!d.ok) throw new Error(d.error || '저장 실패');
-      revRef.current = d.rev;
-      pendingRef.current = false;
-      localStorage.setItem('happytree_rev', String(d.rev));
-      setSync({ status: 'ok', at: d.at, by: d.by });
+      if (d.students && d.students.length) {
+        applyServerList(d.students, d.rev, d.at, d.by);
+      } else {
+        revRef.current = d.rev;
+        syncedRef.current = snapshotOf(list);
+        pendingRef.current = false;
+        localStorage.setItem('happytree_rev', String(d.rev));
+        setSync({ status: 'ok', at: d.at, by: d.by });
+      }
     } catch (e) {
-      setSync(s => ({ ...s, status: 'offline', err: String(e) }));
+      // 실패하면 pendingRef를 남겨둬서 다음 확인 주기에 자동으로 다시 시도한다
+      setSync(s2 => ({ ...s2, status: 'offline', err: String(e) }));
     }
   };
 
+  useEffect(() => { studentsRef.current = students; }, [students]);
+  useEffect(() => { meRef.current = me; }, [me]);
   useEffect(() => { pullNow({ firstTime: true }); }, []);                     // 시작할 때 서버에서 받아온다
 
   useEffect(() => {                                        // 편집하면 1.5초 뒤 자동 저장
@@ -397,19 +428,20 @@ function App() {
     if (sync.status === 'loading') return;                 // 첫 로드 전에는 올리지 않는다
     pendingRef.current = true;
     window.clearTimeout(saveTimer.current);
-    saveTimer.current = window.setTimeout(() => { pushNow(); }, 1500);
+    saveTimer.current = window.setTimeout(() => { pushNow(); }, 1200);
     return () => window.clearTimeout(saveTimer.current);
   }, [students]);
 
-  useEffect(() => {                                        // 20초마다 다른 선생님이 저장했는지 확인
+  useEffect(() => {                    // 7초마다 확인 — 못 보낸 저장은 다시 시도하고, 남이 고쳤으면 받아온다
     const t = window.setInterval(async () => {
-      if (pendingRef.current || sync.status === 'conflict' || sync.status === 'saving') return;
+      if (sync.status === 'conflict' || sync.status === 'saving') return;
+      if (pendingRef.current) { pushNow(); return; }
       try {
         const r = await fetch(`${SERVER_URL}?action=rev`, { redirect: 'follow' });
         const d = await r.json();
         if (d.ok && d.rev !== revRef.current) pullNow();
-      } catch { /* 연결 안 되면 다음에 다시 */ }
-    }, 20000);
+      } catch { /* 연결 안 되면 다음 주기에 다시 */ }
+    }, 7000);
     return () => window.clearInterval(t);
   }, [sync.status]);
 
