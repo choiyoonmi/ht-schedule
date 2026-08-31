@@ -449,6 +449,19 @@ function App() {
     saveTimer.current = window.setTimeout(() => { pushNow(); }, 1200);
   }, [students]);
 
+  useEffect(() => {                    // 창을 다시 보면 곧바로 최신으로 맞춘다
+    const wake = () => {
+      if (document.hidden) return;
+      if (pendingRef.current) pushNow(); else pullNow();
+    };
+    document.addEventListener('visibilitychange', wake);
+    window.addEventListener('focus', wake);
+    return () => {
+      document.removeEventListener('visibilitychange', wake);
+      window.removeEventListener('focus', wake);
+    };
+  }, []);
+
   useEffect(() => {                    // 7초마다 확인 — 못 보낸 저장은 다시 시도하고, 남이 고쳤으면 받아온다
     const t = window.setInterval(async () => {
       if (sync.status === 'conflict' || sync.status === 'saving') return;
