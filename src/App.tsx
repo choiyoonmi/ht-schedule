@@ -325,8 +325,9 @@ function App() {
   const studentsRef = useRef<Student[]>(students);        // 타이머 안에서 최신 학생 목록 보기
   const meRef = useRef<string>(me);
   const syncedRef = useRef<Record<string, string>>({});   // 서버가 갖고 있는 내용(학생별)
+  const lastAppliedRef = useRef<string>('');              // 방금 서버에서 받아 적용한 내용
+  const lastEditRef = useRef<number>(0);                  // 마지막으로 사람이 고친 시각
   const pendingRef = useRef(false);       // 아직 서버에 못 올린 편집이 있다
-  const applyingRef = useRef(false);      // 서버에서 받아 적용하는 중(저장 트리거 방지)
   const saveTimer = useRef<number | undefined>(undefined);
 
   // 두 시간표가 같은 내용인지 (키 순서·형식 차이는 무시)
@@ -342,15 +343,30 @@ function App() {
     list.forEach(s2 => { m[s2.id] = JSON.stringify(s2); });
     return m;
   };
+  // ★서버 내용을 받아들이되, 아직 못 보낸 내 수정은 절대 지우지 않는다.
+  //   (저장하는 1~3초 사이에 고친 것이 서버 응답에 덮여 사라지던 문제)
   const applyServerList = (list: Student[], rev: number, at: string, by: string) => {
-    applyingRef.current = true;
-    setStudents(list);
-    syncedRef.current = snapshotOf(list);
+    const snap = syncedRef.current;
+    const localEdited = new Map<string, Student>();
+    studentsRef.current.forEach(s2 => {
+      if (JSON.stringify(s2) !== snap[s2.id]) localEdited.set(s2.id, s2);
+    });
+    const merged = list.map(s2 => localEdited.get(s2.id) || s2);
+    const onServer = new Set(list.map(s2 => s2.id));
+    localEdited.forEach((s2, id) => { if (!onServer.has(id)) merged.push(s2); });   // 내가 새로 만든 학생
+
+    lastAppliedRef.current = JSON.stringify(merged);
+    setStudents(merged);
+    syncedRef.current = snapshotOf(list);        // 서버가 아는 내용
     revRef.current = rev;
-    pendingRef.current = false;
+    pendingRef.current = localEdited.size > 0;   // 내 수정이 남아 있으면 아직 보낼 게 있다
     setServerCopy(null);
     localStorage.setItem('happytree_rev', String(rev));
     setSync({ status: 'ok', at, by });
+    if (localEdited.size > 0) {
+      window.clearTimeout(saveTimer.current);
+      saveTimer.current = window.setTimeout(() => { pushNow(); }, 800);
+    }
   };
 
   const pullNow = async (opts: { firstTime?: boolean } = {}) => {
@@ -423,19 +439,21 @@ function App() {
   useEffect(() => { meRef.current = me; }, [me]);
   useEffect(() => { pullNow({ firstTime: true }); }, []);                     // 시작할 때 서버에서 받아온다
 
-  useEffect(() => {                                        // 편집하면 1.5초 뒤 자동 저장
-    if (applyingRef.current) { applyingRef.current = false; return; }
+  useEffect(() => {                                        // 사람이 고치면 1.2초 뒤 자동 저장
     if (sync.status === 'loading') return;                 // 첫 로드 전에는 올리지 않는다
+    // 서버에서 받아 적용한 그대로면 내 수정이 아니므로 저장하지 않는다
+    if (lastAppliedRef.current === JSON.stringify(students)) return;
+    lastEditRef.current = Date.now();
     pendingRef.current = true;
     window.clearTimeout(saveTimer.current);
     saveTimer.current = window.setTimeout(() => { pushNow(); }, 1200);
-    return () => window.clearTimeout(saveTimer.current);
   }, [students]);
 
   useEffect(() => {                    // 7초마다 확인 — 못 보낸 저장은 다시 시도하고, 남이 고쳤으면 받아온다
     const t = window.setInterval(async () => {
       if (sync.status === 'conflict' || sync.status === 'saving') return;
       if (pendingRef.current) { pushNow(); return; }
+      if (Date.now() - lastEditRef.current < 3000) return;   // 지금 고치는 중이면 건드리지 않는다
       try {
         const r = await fetch(`${SERVER_URL}?action=rev`, { redirect: 'follow' });
         const d = await r.json();
@@ -816,7 +834,7 @@ function App() {
                   : <><b>{sync.by || '다른 선생님'}</b> 님이 {sync.at} 에 저장했습니다. 지금 화면과 서버 내용이 다릅니다.</>}
                 {sync.at && <span style={{color:'#8D6E63'}}> (서버 저장: {sync.at} {sync.by})</span>}
               </span>
-              <button onClick={() => { if (serverCopy) { backupNow(); applyingRef.current = true; setStudents(serverCopy.students); pendingRef.current = false; setServerCopy(null); setSync({ status: 'ok', at: serverCopy.at, by: serverCopy.by }); } else { pullNow(); } }}
+              <button onClick={() => { if (serverCopy) { backupNow(); lastAppliedRef.current = JSON.stringify(serverCopy.students); setStudents(serverCopy.students); syncedRef.current = snapshotOf(serverCopy.students); pendingRef.current = false; setServerCopy(null); setSync({ status: 'ok', at: serverCopy.at, by: serverCopy.by }); } else { pullNow(); } }}
                 style={{padding:'6px 14px', borderRadius:'6px', border:'none', cursor:'pointer', fontSize:'12px', fontWeight:'bold', background:'#F57C00', color:'#fff'}}>서버 것으로 보기</button>
               <button onClick={() => { backupNow(); setServerCopy(null); pushNow(true); }} style={{padding:'6px 14px', borderRadius:'6px', border:'1px solid #F57C00', cursor:'pointer', fontSize:'12px', fontWeight:'bold', background:'#fff', color:'#E65100'}}>내 것을 서버에 올리기</button>
             </div>
