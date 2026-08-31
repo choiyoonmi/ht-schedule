@@ -396,6 +396,36 @@ function App() {
     }
   };
 
+  // 서버 것을 그대로 받아 화면을 맞춘다(내 것은 백업 후 버림).
+  // 관리자가 예전 시점으로 되돌렸을 때처럼, 서버가 정답인 경우에 쓴다.
+  const forcePull = async () => {
+    try {
+      const r = await fetch(`${SERVER_URL}?action=load`, { redirect: 'follow' });
+      const d = await r.json();
+      if (!d.ok || !d.students || !d.students.length) throw new Error(d.error || '서버에 자료가 없습니다');
+      const mine = JSON.stringify(studentsRef.current);
+      const theirs = JSON.stringify(d.students);
+      if (mine === theirs) { setSync({ status: 'ok', at: d.at, by: d.by }); alert('이미 서버와 같은 시간표입니다.'); return; }
+      if (!confirm(`서버에 저장된 시간표(학생 ${d.students.length}명, ${d.at} ${d.by})로 이 화면을 맞춥니다.
+지금 화면의 내용은 백업해두니 ↩️되돌리기로 복구할 수 있습니다.
+계속할까요?`)) return;
+      backupNow();
+      window.clearTimeout(saveTimer.current);
+      lastAppliedRef.current = theirs;
+      setStudents(d.students);
+      syncedRef.current = snapshotOf(d.students);
+      revRef.current = d.rev;
+      pendingRef.current = false;
+      setServerCopy(null);
+      setReplacedNotice(false);
+      localStorage.setItem('happytree_rev', String(d.rev));
+      setSync({ status: 'ok', at: d.at, by: d.by });
+    } catch (e) {
+      setSync(s2 => ({ ...s2, status: 'offline', err: String(e) }));
+      alert('서버에서 받아오지 못했습니다. 인터넷을 확인해 주세요.');
+    }
+  };
+
   // 고친 학생만 보낸다 → 두 선생님이 서로 다른 학생을 고치면 부딪히지 않는다
   const pushNow = async (whole = false) => {
     const list = studentsRef.current;
@@ -813,8 +843,8 @@ function App() {
                   <span style={{fontWeight:'normal', color:'#666'}}> · 마지막 저장 {sync.at || '-'} {sync.by && `(${sync.by})`}</span>
                 </span>
               )}
-              <button onClick={() => pullNow()} title="서버에서 최신 시간표를 지금 받아옵니다"
-                style={{padding:'5px 10px', borderRadius:'6px', border:'1px solid #bbb', cursor:'pointer', fontSize:'12px', background:'#fff'}}>🔄 새로 받기</button>
+              <button onClick={() => forcePull()} title="서버에 저장된 시간표로 이 화면을 맞춥니다"
+                style={{padding:'5px 10px', borderRadius:'6px', border:'1px solid #bbb', cursor:'pointer', fontSize:'12px', background:'#fff'}}>🔄 서버 것으로 받기</button>
               {sync.status === 'saving' && <span style={{fontSize:'12px', color:'#1976D2', fontWeight:'bold'}}>⏳ 저장 중…</span>}
               {sync.status === 'loading' && <span style={{fontSize:'12px', color:'#888'}}>☁️ 불러오는 중…</span>}
               {sync.status === 'offline' && (
