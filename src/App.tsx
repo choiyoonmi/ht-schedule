@@ -283,13 +283,33 @@ function App() {
     localStorage.setItem('happytree_seed_version', SEED_VERSION);
     setSeedNotice(false);
   };
+  // 어떤 시간표인지 한 줄 요약 (초1은 3~5시, 초2는 2~4시가 다 차야 정상)
+  const summarize = (list: Student[]) => {
+    const slots = list.reduce((a, s2) =>
+      a + Object.values(s2.selectedTeachers || {}).reduce((b, v) => b + v.length, 0), 0);
+    const fill = (g: number, hs: number[]) => {
+      const kids = list.filter(s2 => s2.division === '초등부' && s2.grade === g);
+      if (!kids.length) return '-';
+      const got = kids.map(s2 => {
+        const f = new Set(Object.values(s2.selectedTeachers || {}).flat().map(c => `${c.day}|${c.hour}`));
+        return DAYS.reduce((a, d) => a + hs.filter(h => f.has(`${d}|${h}`)).length, 0);
+      });
+      return (got.reduce((a, b) => a + b, 0) / kids.length).toFixed(1) + '/' + (DAYS.length * hs.length);
+    };
+    return `학생 ${list.length}명 · 수업 ${slots}칸 · 초1 ${fill(1, [15, 16, 17])}칸 · 초2 ${fill(2, [14, 15, 16])}칸`;
+  };
+
   const restoreBackup = () => {
     const b = localStorage.getItem('happytree_backup');
-    if (!b) { alert('백업이 없습니다.'); return; }
+    if (!b) { alert('이 브라우저에 백업이 없습니다.'); return; }
     const at = localStorage.getItem('happytree_backup_at') || '';
-    if (!confirm(`${at} 에 백업한 시간표로 되돌립니다.\n지금 화면의 시간표는 사라집니다. 계속할까요?`)) return;
+    let list: Student[];
+    try { list = JSON.parse(b); } catch { alert('백업을 읽지 못했습니다.'); return; }
+    const ok = confirm('이 브라우저에 남아 있는 백업으로 되돌립니다.\n\n[백업] ' + at + '\n  ' + summarize(list) +
+      '\n\n[지금 화면]\n  ' + summarize(students) + '\n\n계속할까요? (지금 화면도 다시 백업됩니다)');
+    if (!ok) return;
     backupNow();
-    setStudents(JSON.parse(b));
+    setStudents(list);
   };
   const exportFile = () => {
     const blob = new Blob([JSON.stringify(students, null, 1)], { type: 'application/json' });
