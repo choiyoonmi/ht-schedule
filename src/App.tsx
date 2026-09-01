@@ -839,7 +839,7 @@ function App() {
             {sync.status === 'offline' && <span className="no-print" style={{fontSize:'12px', color:'#fff', background:'#F57F17', borderRadius:'12px', padding:'3px 10px', fontWeight:'bold'}}>⚠️ 서버 연결 안 됨</span>}
             {editMode && (
               <span className="no-print" style={{fontSize:'12px', color:'#555'}}>
-                <b>옮기기</b>: 학생 이름(또는 반 제목 ⠿)을 누르고 → 옮길 칸을 누르세요 · <b>넣기</b>: 빈 칸을 누르세요 · <b>빼기</b>: 이름 옆 ✕
+                <b>옮기기</b>: ⇄ 를 누른 뒤 옮길 칸을 누르세요 · <b>넣기</b>: 빈 칸을 누르세요 · <b>빼기</b>: ✕ · 그 밖의 클릭으로는 아무것도 바뀌지 않습니다
               </span>
             )}
           </div>
@@ -930,6 +930,7 @@ function App() {
                             onClick={() => {
                               if (!editMode) return;
                               if (ttPick) { dropOnCell(c.id, d, h, ttPick); setTtPick(null); return; }
+                              if (cell) return;                       // 수업이 있는 칸은 눌러도 아무 일 없음
                               setTtAdd({ who: c.id, day: d, hour: h }); setTtSearch('');
                             }}
                             style={{verticalAlign:'top', padding:'4px 5px', lineHeight:1.35,
@@ -942,39 +943,46 @@ function App() {
                                 draggable={editMode}
                                 onDragStart={(ev) => { if (!editMode) return; ttDrag.current = { who: c.id, day: d, hour: h, subject: cell.subject, teacherId: cell.items[0]?.teacherId || '' }; ev.dataTransfer.effectAllowed = 'move'; ev.dataTransfer.setData('text/plain', '반'); }}
                                 onDragEnd={() => { ttDrag.current = null; }}
-                                onClick={(ev) => {
-                                  if (!editMode) return;
-                                  ev.stopPropagation();
-                                  setTtPick({ who: c.id, day: d, hour: h, subject: cell.subject,
-                                              teacherId: cell.items[0]?.teacherId || '',
-                                              label: `${gLabel(cell.grades)} ${cell.subject} ${cell.names.length}명 (${d} ${h - 12}시)` });
-                                }}
-                                title={editMode ? '눌러서 고른 뒤 옮길 칸을 누르세요 (끌어서 옮겨도 됩니다)' : undefined}
+                                title={editMode ? '끌어서 이 반 전체를 옮깁니다 (또는 ⇄ 버튼)' : undefined}
                                 style={{fontWeight:'bold', color: clr.text, fontSize:'10px', marginBottom:'2px',
                                         cursor: editMode ? 'grab' : undefined}}>
-                                {editMode && '⠿ '}{gLabel(cell.grades)} <span style={{fontWeight:'normal', opacity:.7}}>{cell.names.length}</span>
+                                {editMode && (
+                                  <button
+                                    onClick={(ev) => { ev.stopPropagation();
+                                      setTtPick({ who: c.id, day: d, hour: h, subject: cell.subject,
+                                                  teacherId: cell.items[0]?.teacherId || '',
+                                                  label: `${gLabel(cell.grades)} ${cell.subject} ${cell.names.length}명 (${d} ${h - 12}시)` }); }}
+                                    title="이 반 전체를 옮깁니다"
+                                    style={{border:'none', background:'transparent', color: clr.text, cursor:'pointer',
+                                            fontSize:'11px', padding:0, marginRight:'3px'}}>⇄</button>
+                                )}
+                                {gLabel(cell.grades)} <span style={{fontWeight:'normal', opacity:.7}}>{cell.names.length}</span>
                               </div>
                               {cell.items.map((it, ii) => (
                                 <div key={it.studentId + ii}
                                   draggable={editMode}
                                   onDragStart={(ev) => { if (!editMode) return; ev.stopPropagation(); ttDrag.current = { who: c.id, day: d, hour: h, subject: it.subject, teacherId: it.teacherId, studentId: it.studentId }; ev.dataTransfer.effectAllowed = 'move'; ev.dataTransfer.setData('text/plain', it.name); }}
                                   onDragEnd={() => { ttDrag.current = null; }}
-                                  onClick={(ev) => {
-                                    if (!editMode) return;
-                                    ev.stopPropagation();
-                                    setTtPick({ who: c.id, day: d, hour: h, subject: it.subject, teacherId: it.teacherId,
-                                                studentId: it.studentId, label: `${it.name} ${it.subject} (${d} ${h - 12}시)` });
-                                  }}
-                                  title={editMode ? '눌러서 고른 뒤 옮길 칸을 누르세요 (끌어서 옮겨도 됩니다)' : undefined}
+                                  onClick={(ev) => { if (editMode) ev.stopPropagation(); }}
+                                  title={editMode ? '⇄ 를 누르면 이 학생만 옮깁니다' : undefined}
                                   style={{fontSize:'10.5px', color:'#333', whiteSpace:'nowrap',
                                           display:'flex', alignItems:'center', gap:'3px',
                                           cursor: editMode ? 'grab' : undefined}}>
                                   <span>{it.name}</span>
                                   {editMode && (
                                     <button
+                                      onClick={(ev) => { ev.stopPropagation();
+                                        setTtPick({ who: c.id, day: d, hour: h, subject: it.subject, teacherId: it.teacherId,
+                                                    studentId: it.studentId, label: `${it.name} ${it.subject} (${d} ${h - 12}시)` }); }}
+                                      title="이 학생만 옮깁니다"
+                                      style={{marginLeft:'auto', border:'none', background:'transparent', color:'#1976D2',
+                                              cursor:'pointer', fontSize:'10px', lineHeight:1, padding:0}}>⇄</button>
+                                  )}
+                                  {editMode && (
+                                    <button
                                       onClick={(ev) => { ev.stopPropagation(); removeFromCell(it.studentId, it.subject, d, h); }}
                                       title="이 학생의 이 수업을 지웁니다"
-                                      style={{marginLeft:'auto', border:'none', background:'transparent', color:'#d32f2f',
+                                      style={{border:'none', background:'transparent', color:'#d32f2f',
                                               cursor:'pointer', fontSize:'10px', lineHeight:1, padding:0}}>✕</button>
                                   )}
                                 </div>
