@@ -349,6 +349,9 @@ function App() {
   const syncedRef = useRef<Record<string, string>>({});   // 서버가 갖고 있는 내용(학생별)
   const lastAppliedRef = useRef<string>('');              // 방금 서버에서 받아 적용한 내용
   const lastEditRef = useRef<number>(0);                  // 마지막으로 사람이 고친 시각
+  const dirtyRef = useRef<Set<string>>(new Set());        // 이 창에서 내가 고친 학생 (아직 못 올린 것)
+  const deletedRef = useRef<Set<string>>(new Set());      // 이 창에서 내가 지운 학생
+  const prevRef = useRef<Student[]>(students);            // 직전 학생 목록 (무엇이 바뀌었는지 비교용)
   const pendingRef = useRef(false);       // 아직 서버에 못 올린 편집이 있다
   const saveTimer = useRef<number | undefined>(undefined);
 
@@ -368,10 +371,9 @@ function App() {
   // ★서버 내용을 받아들이되, 아직 못 보낸 내 수정은 절대 지우지 않는다.
   //   (저장하는 1~3초 사이에 고친 것이 서버 응답에 덮여 사라지던 문제)
   const applyServerList = (list: Student[], rev: number, at: string, by: string) => {
-    const snap = syncedRef.current;
     const localEdited = new Map<string, Student>();
     studentsRef.current.forEach(s2 => {
-      if (JSON.stringify(s2) !== snap[s2.id]) localEdited.set(s2.id, s2);
+      if (dirtyRef.current.has(s2.id)) localEdited.set(s2.id, s2);   // 내가 고친 것만 지킨다
     });
     const merged = list.map(s2 => localEdited.get(s2.id) || s2);
     const onServer = new Set(list.map(s2 => s2.id));
@@ -381,7 +383,7 @@ function App() {
     setStudents(merged);
     syncedRef.current = snapshotOf(list);        // 서버가 아는 내용
     revRef.current = rev;
-    pendingRef.current = localEdited.size > 0;   // 내 수정이 남아 있으면 아직 보낼 게 있다
+    pendingRef.current = localEdited.size > 0 || deletedRef.current.size > 0;
     setServerCopy(null);
     localStorage.setItem('happytree_rev', String(rev));
     setSync({ status: 'ok', at, by });
@@ -434,6 +436,9 @@ function App() {
       backupNow();
       window.clearTimeout(saveTimer.current);
       lastAppliedRef.current = theirs;
+      dirtyRef.current.clear();
+      deletedRef.current.clear();
+      prevRef.current = d.students;
       setStudents(d.students);
       syncedRef.current = snapshotOf(d.students);
       revRef.current = d.rev;
@@ -451,9 +456,11 @@ function App() {
   // 고친 학생만 보낸다 → 두 선생님이 서로 다른 학생을 고치면 부딪히지 않는다
   const pushNow = async (whole = false) => {
     const list = studentsRef.current;
-    const snap = syncedRef.current;
-    const changed = list.filter(s2 => JSON.stringify(s2) !== snap[s2.id]);
-    const deleted = Object.keys(snap).filter(id => !list.some(s2 => s2.id === id));
+    // ★내가 이 창에서 직접 고친 학생만 보낸다.
+    //   예전에는 '서버가 아는 내용과 다른 학생'을 전부 보내서, 오래된 창이
+    //   남의 최신 수정을 옛 내용으로 되돌려버렸다.
+    const changed = list.filter(s2 => dirtyRef.current.has(s2.id));
+    const deleted = Array.from(deletedRef.current);
     if (!whole && !changed.length && !deleted.length) {
       pendingRef.current = false;
       return;
@@ -472,6 +479,8 @@ function App() {
       const d = await r.json();
       if (d.conflict) { setSync({ status: 'conflict', at: d.at, by: d.by }); return; }
       if (!d.ok) throw new Error(d.error || '저장 실패');
+      changed.forEach(s2 => dirtyRef.current.delete(s2.id));
+      deleted.forEach(id => deletedRef.current.delete(id));
       if (d.students && d.students.length) {
         applyServerList(d.students, d.rev, d.at, d.by);
       } else {
@@ -494,7 +503,12 @@ function App() {
   useEffect(() => {                                        // 사람이 고치면 1.2초 뒤 자동 저장
     if (sync.status === 'loading') return;                 // 첫 로드 전에는 올리지 않는다
     // 서버에서 받아 적용한 그대로면 내 수정이 아니므로 저장하지 않는다
+    const prev = prevRef.current;
+    prevRef.current = students;
     if (lastAppliedRef.current === JSON.stringify(students)) return;
+    const pm = new Map(prev.map(s2 => [s2.id, JSON.stringify(s2)]));
+    students.forEach(s2 => { if (pm.get(s2.id) !== JSON.stringify(s2)) dirtyRef.current.add(s2.id); });
+    prev.forEach(s2 => { if (!students.some(x => x.id === s2.id)) deletedRef.current.add(s2.id); });
     lastEditRef.current = Date.now();
     pendingRef.current = true;
     window.clearTimeout(saveTimer.current);
