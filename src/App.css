@@ -50,3 +50,12 @@ code {
 /* 선생님별 전체표: 가로 용지 */
 @page tt-landscape { size: A4 landscape; margin: 6mm; }
 .tt-page { page: tt-landscape; }
+
+/* 학생 카드: 가로 5명 기본. 아주 좁은 화면에서만 줄인다 */
+[data-student-grid] { grid-template-columns: repeat(5, minmax(0,1fr)); }
+[data-student-grid] .print-student table { table-layout: fixed; width: 100%; }
+[data-student-grid] .print-student td, [data-student-grid] .print-student th { overflow: hidden; }
+@media (max-width: 1000px) { [data-student-grid] { grid-template-columns: repeat(3, minmax(0,1fr)) !important; } }
+@media (max-width: 760px)  { [data-student-grid] { grid-template-columns: repeat(2, minmax(0,1fr)) !important; } }
+@media (max-width: 560px)  { [data-student-grid] { grid-template-columns: 1fr !important; } }
+@media print { [data-student-grid] { grid-template-columns: repeat(5, minmax(0,1fr)) !important; gap: 6px !important; } }

@@ -1149,7 +1149,7 @@ function App() {
             </div>
           )}
           {students.length > 0 ? (
-            <div style={styles.scheduleContainer}>
+            <div data-student-grid style={styles.scheduleContainer}>
               {students.filter(s => !scheduleSearch.trim() || s.name.includes(scheduleSearch.trim())).map(student => {
                 const studentSchedule = schedule.filter(e => e.studentName === student.name);
                 // 실제 수업 시간을 반드시 포함시킨다 — 부별 기본 시간대 밖의 수업(예: 중등생의 4시 국어)이
@@ -1171,7 +1171,7 @@ function App() {
                           value={student.vocab || ''}
                           onChange={(ev) => updateVocab(student.id, ev.target.value)}
                           placeholder="📖 단어 진도 입력 (예: Day 15)"
-                          style={{flex:1, minWidth:'120px', padding:'3px 8px', fontSize:'12px', border:'1px solid #F9A825', borderRadius:'4px'}}
+                          style={{flex:1, minWidth:'50px', width:'100%', padding:'3px 6px', fontSize:'11px', border:'1px solid #F9A825', borderRadius:'4px'}}
                         />
                       ) : (
                         student.vocab ? (
@@ -1490,7 +1490,7 @@ function App() {
         <div style={styles.rightPanel}>
           <h2 style={styles.panelTitle}>📊 시간표 미리보기</h2>
           {students.length > 0 ? (
-            <div style={styles.scheduleContainer}>
+            <div data-student-grid style={styles.scheduleContainer}>
               {students.map(student => {
                 const studentSchedule = schedule.filter(e => e.studentName === student.name);
                 // 실제 수업 시간을 반드시 포함시킨다 — 부별 기본 시간대 밖의 수업(예: 중등생의 4시 국어)이
@@ -1660,12 +1660,13 @@ const styles: Record<string, React.CSSProperties> = {
   },
   scheduleContainer: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(3, 1fr)',
-    gap: '20px',
+    gridTemplateColumns: 'repeat(5, minmax(0, 1fr))',   // 가로 5명씩
+    gap: '12px',
   },
   studentScheduleSection: {
     backgroundColor: 'white',
-    padding: '15px',
+    padding: '10px',
+    minWidth: 0,
     borderRadius: '8px',
     boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
   },
