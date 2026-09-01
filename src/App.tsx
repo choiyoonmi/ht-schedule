@@ -240,6 +240,10 @@ function App() {
   const ttDrag = useRef<{who: string; day: DayOfWeek; hour: number; subject: string; teacherId: string; studentId?: string} | null>(null);
   const [history, setHistory] = useState<Student[][]>([]); // 되돌리기용 편집 이력
   const [editMode, setEditMode] = useState<boolean>(false); // 편집 모드(수정하기 버튼으로 켜야 편집 가능)
+  // 선생님별 표: 클릭으로 옮기기(고른 것) / 빈 칸에 학생 넣기
+  const [ttPick, setTtPick] = useState<{who: string; day: DayOfWeek; hour: number; subject: string; teacherId: string; studentId?: string; label: string} | null>(null);
+  const [ttAdd, setTtAdd] = useState<{who: string; day: DayOfWeek; hour: number} | null>(null);
+  const [ttSearch, setTtSearch] = useState('');
 
   // 저장본이 없을 때(첫 방문)만 시드 버전을 찍는다.
   // 저장본이 있으면 버전을 그대로 둬서, 위 안내가 원장님이 선택할 때까지 남아 있게 한다.
@@ -734,8 +738,37 @@ function App() {
       const t = TEACHERS.find(x => x.name === who && x.subject === subject);
       return t ? t.id : null;
     };
-    const dropOnCell = (toWho: string, toDay: DayOfWeek, toHour: number) => {
-      const d = ttDrag.current;
+    // 이 선생님 칸에 이 학생(부)이 들어갈 수 있는 과목
+    const subjectForColumn = (who: string, division: Division): string | null => {
+      if (who === '숙제반') return '숙제반';
+      const cands = TEACHERS.filter(t => t.name === who);
+      if (!cands.length) return null;
+      const pref = division === '중등부' ? '중등' : division === '고등부' ? '고등' : '초등';
+      const hit = cands.find(x => x.subject.startsWith(pref)) || cands.find(x => x.subject === '국어');
+      return hit ? hit.subject : null;
+    };
+    const addToCell = (studentId: string, who: string, day: DayOfWeek, hour: number) => {
+      const st = students.find(s2 => s2.id === studentId);
+      if (!st) return;
+      const subject = subjectForColumn(who, st.division);
+      const tid = subject ? teacherIdFor(who, subject) : null;
+      if (!subject || tid === null) {
+        alert(`${st.name}(${st.division})은(는) ${who} 칸에 넣을 수 없습니다.`);
+        return;
+      }
+      pushHistory();
+      setStudents(prev => prev.map(s2 => s2.id !== studentId ? s2 : {
+        ...s2,
+        selectedTeachers: {
+          ...s2.selectedTeachers,
+          [subject]: [...(s2.selectedTeachers[subject] || []), { teacherId: tid, day, hour }],
+        },
+      }));
+      setTtAdd(null);
+      setTtSearch('');
+    };
+    const dropOnCell = (toWho: string, toDay: DayOfWeek, toHour: number, picked?: typeof ttPick) => {
+      const d = picked || ttDrag.current;
       ttDrag.current = null;
       if (!d) return;
       if (d.who === toWho && d.day === toDay && d.hour === toHour) return;
@@ -806,10 +839,51 @@ function App() {
             {sync.status === 'offline' && <span className="no-print" style={{fontSize:'12px', color:'#fff', background:'#F57F17', borderRadius:'12px', padding:'3px 10px', fontWeight:'bold'}}>⚠️ 서버 연결 안 됨</span>}
             {editMode && (
               <span className="no-print" style={{fontSize:'12px', color:'#555'}}>
-                반 제목(⠿)을 끌면 <b>반 전체</b>가, 학생 이름을 끌면 <b>그 학생만</b> 옮겨집니다 · ✕는 그 학생의 그 수업만 삭제
+                <b>옮기기</b>: 학생 이름(또는 반 제목 ⠿)을 누르고 → 옮길 칸을 누르세요 · <b>넣기</b>: 빈 칸을 누르세요 · <b>빼기</b>: 이름 옆 ✕
               </span>
             )}
           </div>
+          {editMode && ttPick && (
+            <div className="no-print" style={{background:'#E3F2FD', border:'2px solid #1976D2', borderRadius:'8px', padding:'8px 12px', marginBottom:'8px', display:'flex', alignItems:'center', gap:'10px', flexWrap:'wrap'}}>
+              <span style={{fontSize:'13px', color:'#0D47A1'}}>
+                📌 <b>{ttPick.label}</b> 골랐습니다 — <b>옮길 칸을 누르세요</b>
+                {ttPick.studentId ? ' (이 학생만 옮겨집니다)' : ' (반 전체가 옮겨집니다)'}
+              </span>
+              <button onClick={() => setTtPick(null)} style={{marginLeft:'auto', padding:'5px 12px', borderRadius:'6px', border:'none', cursor:'pointer', fontSize:'12px', fontWeight:'bold', background:'#1976D2', color:'#fff'}}>취소</button>
+            </div>
+          )}
+          {editMode && ttAdd && (() => {
+            const cands = students.filter(st => {
+              const subj = subjectForColumn(ttAdd.who, st.division);
+              if (!subj || teacherIdFor(ttAdd.who, subj) === null) return false;
+              const busy = Object.values(st.selectedTeachers || {}).flat()
+                .some(c2 => c2.day === ttAdd.day && c2.hour === ttAdd.hour);
+              if (busy) return false;
+              return !ttSearch.trim() || st.name.includes(ttSearch.trim());
+            });
+            return (
+              <div className="no-print" style={{background:'#F1F8E9', border:'2px solid #2e7d32', borderRadius:'8px', padding:'10px 12px', marginBottom:'8px'}}>
+                <div style={{display:'flex', alignItems:'center', gap:'10px', flexWrap:'wrap', marginBottom:'8px'}}>
+                  <span style={{fontSize:'13px', color:'#1B5E20'}}>
+                    ➕ <b>{ttAdd.who}</b> · <b>{ttAdd.day} {ttAdd.hour - 12}시</b> 에 넣을 학생을 고르세요
+                    <span style={{color:'#666'}}> (그 시간에 수업이 없는 학생만 나옵니다 · {cands.length}명)</span>
+                  </span>
+                  <input value={ttSearch} onChange={(ev) => setTtSearch(ev.target.value)} placeholder="이름 검색"
+                    style={{padding:'5px 8px', fontSize:'12px', border:'1px solid #ccc', borderRadius:'6px', width:'120px'}} />
+                  <button onClick={() => { setTtAdd(null); setTtSearch(''); }} style={{marginLeft:'auto', padding:'5px 12px', borderRadius:'6px', border:'none', cursor:'pointer', fontSize:'12px', fontWeight:'bold', background:'#2e7d32', color:'#fff'}}>닫기</button>
+                </div>
+                <div style={{display:'flex', flexWrap:'wrap', gap:'6px', maxHeight:'150px', overflowY:'auto'}}>
+                  {cands.length === 0 && <span style={{fontSize:'12px', color:'#888'}}>넣을 수 있는 학생이 없습니다 (그 시간에 다들 수업이 있거나, 이 선생님이 맡는 과목이 아닙니다)</span>}
+                  {cands.map(st => (
+                    <button key={st.id} onClick={() => addToCell(st.id, ttAdd.who, ttAdd.day, ttAdd.hour)}
+                      style={{padding:'4px 10px', borderRadius:'12px', border:'1px solid #2e7d32', background:'#fff', color:'#1B5E20', cursor:'pointer', fontSize:'12px'}}>
+                      {st.name} <span style={{color:'#888', fontSize:'10px'}}>{st.division === '유치부' ? '유치' : `${st.division[0]}${st.grade}`}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
           {editMode && scheduleWarnings.length > 0 && (
             <div className="no-print" style={{background:'#FFEBEE', border:'2px solid #d32f2f', borderRadius:'8px', padding:'8px 12px', marginBottom:'8px', maxHeight:'130px', overflowY:'auto'}}>
               <div style={{fontWeight:'bold', color:'#d32f2f', marginBottom:'4px', fontSize:'13px'}}>⚠️ 경고 {scheduleWarnings.length}건</div>
@@ -851,8 +925,13 @@ function App() {
                       const clr = TEACHER_COLORS[tname(c.id)] || TEACHER_COLORS['숙제반'];
                       return (
                         <td key={d + c.id}
-                            onDragOver={(ev) => { if (editMode) ev.preventDefault(); }}
-                            onDrop={() => { if (editMode) dropOnCell(c.id, d, h); }}
+                            onDragOver={(ev) => { if (editMode) { ev.preventDefault(); ev.dataTransfer.dropEffect = 'move'; } }}
+                            onDrop={(ev) => { if (editMode) { ev.preventDefault(); dropOnCell(c.id, d, h); } }}
+                            onClick={() => {
+                              if (!editMode) return;
+                              if (ttPick) { dropOnCell(c.id, d, h, ttPick); setTtPick(null); return; }
+                              setTtAdd({ who: c.id, day: d, hour: h }); setTtSearch('');
+                            }}
                             style={{verticalAlign:'top', padding:'4px 5px', lineHeight:1.35,
                                     border:'1px solid #d5dae0',
                                     borderRight: (ci === cols.length-1 && di < DAYS.length-1) ? '2px solid #7f8c9b' : '1px solid #d5dae0',
@@ -861,9 +940,16 @@ function App() {
                             <>
                               <div
                                 draggable={editMode}
-                                onDragStart={() => { if (editMode) ttDrag.current = { who: c.id, day: d, hour: h, subject: cell.subject, teacherId: cell.items[0]?.teacherId || '' }; }}
+                                onDragStart={(ev) => { if (!editMode) return; ttDrag.current = { who: c.id, day: d, hour: h, subject: cell.subject, teacherId: cell.items[0]?.teacherId || '' }; ev.dataTransfer.effectAllowed = 'move'; ev.dataTransfer.setData('text/plain', '반'); }}
                                 onDragEnd={() => { ttDrag.current = null; }}
-                                title={editMode ? '끌어서 이 반 전체를 옮깁니다' : undefined}
+                                onClick={(ev) => {
+                                  if (!editMode) return;
+                                  ev.stopPropagation();
+                                  setTtPick({ who: c.id, day: d, hour: h, subject: cell.subject,
+                                              teacherId: cell.items[0]?.teacherId || '',
+                                              label: `${gLabel(cell.grades)} ${cell.subject} ${cell.names.length}명 (${d} ${h - 12}시)` });
+                                }}
+                                title={editMode ? '눌러서 고른 뒤 옮길 칸을 누르세요 (끌어서 옮겨도 됩니다)' : undefined}
                                 style={{fontWeight:'bold', color: clr.text, fontSize:'10px', marginBottom:'2px',
                                         cursor: editMode ? 'grab' : undefined}}>
                                 {editMode && '⠿ '}{gLabel(cell.grades)} <span style={{fontWeight:'normal', opacity:.7}}>{cell.names.length}</span>
@@ -871,9 +957,15 @@ function App() {
                               {cell.items.map((it, ii) => (
                                 <div key={it.studentId + ii}
                                   draggable={editMode}
-                                  onDragStart={(ev) => { if (!editMode) return; ev.stopPropagation(); ttDrag.current = { who: c.id, day: d, hour: h, subject: it.subject, teacherId: it.teacherId, studentId: it.studentId }; }}
+                                  onDragStart={(ev) => { if (!editMode) return; ev.stopPropagation(); ttDrag.current = { who: c.id, day: d, hour: h, subject: it.subject, teacherId: it.teacherId, studentId: it.studentId }; ev.dataTransfer.effectAllowed = 'move'; ev.dataTransfer.setData('text/plain', it.name); }}
                                   onDragEnd={() => { ttDrag.current = null; }}
-                                  title={editMode ? '끌어서 이 학생만 옮깁니다' : undefined}
+                                  onClick={(ev) => {
+                                    if (!editMode) return;
+                                    ev.stopPropagation();
+                                    setTtPick({ who: c.id, day: d, hour: h, subject: it.subject, teacherId: it.teacherId,
+                                                studentId: it.studentId, label: `${it.name} ${it.subject} (${d} ${h - 12}시)` });
+                                  }}
+                                  title={editMode ? '눌러서 고른 뒤 옮길 칸을 누르세요 (끌어서 옮겨도 됩니다)' : undefined}
                                   style={{fontSize:'10.5px', color:'#333', whiteSpace:'nowrap',
                                           display:'flex', alignItems:'center', gap:'3px',
                                           cursor: editMode ? 'grab' : undefined}}>
