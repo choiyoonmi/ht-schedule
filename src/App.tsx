@@ -236,6 +236,8 @@ function App() {
   // 시간표 직접 편집(드래그 이동 / 클릭 복사·붙여넣기)
   const [copied, setCopied] = useState<{studentId: string; subject: string; teacherId: string; teacherName: string; day: DayOfWeek; hour: number} | null>(null);
   const dragRef = useRef<{studentId: string; subject: string; day: DayOfWeek; hour: number} | null>(null);
+  // 선생님별 표에서 끌어 옮길 때 쓰는 정보 (studentId가 있으면 그 학생만, 없으면 반 전체)
+  const ttDrag = useRef<{who: string; day: DayOfWeek; hour: number; subject: string; teacherId: string; studentId?: string} | null>(null);
   const [history, setHistory] = useState<Student[][]>([]); // 되돌리기용 편집 이력
   const [editMode, setEditMode] = useState<boolean>(false); // 편집 모드(수정하기 버튼으로 켜야 편집 가능)
 
@@ -676,7 +678,8 @@ function App() {
   if (currentView === 'teachers') {
     // 초등 2시 ~ 중등·고등 8시까지 한 표에
     const HOURS = [14, 15, 16, 17, 18, 19, 20];
-    type Cell = { subject: string; grades: Set<string>; names: string[] };
+    type Item = { studentId: string; name: string; subject: string; teacherId: string };
+    type Cell = { subject: string; grades: Set<string>; names: string[]; items: Item[] };
     // 선생님 한 분이 초등·중등 아이디를 따로 갖고 있어서 '사람' 기준으로 묶는다
     const grid: Record<string, Record<string, Cell>> = {};
     const divTag = (d: Division, g: number) =>
@@ -687,8 +690,9 @@ function App() {
           const who = e.teacherId ? (TEACHERS.find(t => t.id === e.teacherId)?.name || e.teacherId) : '숙제반';
           const key = `${e.day}|${e.hour}`;
           (grid[who] = grid[who] || {});
-          const c = (grid[who][key] = grid[who][key] || { subject: subj, grades: new Set(), names: [] });
+          const c = (grid[who][key] = grid[who][key] || { subject: subj, grades: new Set(), names: [], items: [] });
           c.grades.add(divTag(st.division, st.grade)); c.names.push(st.name);
+          c.items.push({ studentId: st.id, name: st.name, subject: subj, teacherId: e.teacherId || '' });
         }
       }
     }
@@ -707,6 +711,51 @@ function App() {
       { id: '숙제반', label: '숙제반' },
     ];
     const cols = ALL_COLS.filter(c => grid[c.id]);
+
+    // ── 선생님별 표에서 바로 고치기 ──────────────────────────────
+    // 이 표에서 옮기거나 지우면 학생 개인 시간표가 그대로 바뀐다.
+    const teacherIdFor = (who: string, subject: string): string | null => {
+      if (subject === '숙제반') return who === '숙제반' ? '' : null;
+      if (who === '숙제반') return null;
+      const t = TEACHERS.find(x => x.name === who && x.subject === subject);
+      return t ? t.id : null;
+    };
+    const dropOnCell = (toWho: string, toDay: DayOfWeek, toHour: number) => {
+      const d = ttDrag.current;
+      ttDrag.current = null;
+      if (!d) return;
+      if (d.who === toWho && d.day === toDay && d.hour === toHour) return;
+      const targetId = teacherIdFor(toWho, d.subject);
+      if (targetId === null) {
+        alert(`${toWho} 칸에는 ${d.subject} 수업을 넣을 수 없습니다.\n같은 과목 칸으로 옮겨주세요.`);
+        return;
+      }
+      pushHistory();
+      setStudents(prev => prev.map(st => {
+        if (d.studentId && st.id !== d.studentId) return st;
+        const list = st.selectedTeachers[d.subject];
+        if (!list) return st;
+        let touched = false;
+        const next = list.map(c => {
+          const sameSlot = c.day === d.day && c.hour === d.hour;
+          const sameTeacher = (c.teacherId || '') === d.teacherId;
+          if (sameSlot && sameTeacher) { touched = true; return { ...c, teacherId: targetId, day: toDay, hour: toHour }; }
+          return c;
+        });
+        if (!touched) return st;
+        return { ...st, selectedTeachers: { ...st.selectedTeachers, [d.subject]: next } };
+      }));
+    };
+    const removeFromCell = (studentId: string, subject: string, day: DayOfWeek, hour: number) => {
+      pushHistory();
+      setStudents(prev => prev.map(st => st.id !== studentId ? st : {
+        ...st,
+        selectedTeachers: {
+          ...st.selectedTeachers,
+          [subject]: (st.selectedTeachers[subject] || []).filter(c => !(c.day === day && c.hour === hour)),
+        },
+      }));
+    };
     // 아무도 수업이 없는 시간대는 행에서 뺀다
     const usedHours = HOURS.filter(h => cols.some(c => DAYS.some(d => grid[c.id][`${d}|${h}`])));
     const ttHead: CSSProperties = {
@@ -729,8 +778,32 @@ function App() {
         <div className="dashboard-scroll" style={styles.dashboardContent}>
           <div className="sticky-bar" style={{position:'sticky', top:0, zIndex:30, background:'#f5f5f5', display:'flex', alignItems:'center', gap:'12px', flexWrap:'wrap', margin:'0 -20px 12px', padding:'14px 20px', borderBottom:'1px solid #ddd'}}>
             <h2 style={{margin:0}}>👩‍🏫 선생님별 시간표</h2>
-            <button className="no-print" onClick={() => window.print()} style={{padding:'7px 16px', borderRadius:'6px', border:'none', cursor:'pointer', fontSize:'13px', fontWeight:'bold', color:'#fff', background:'#1976D2'}}>🖨️ 인쇄</button>
+            <button
+              className="no-print"
+              onClick={() => { setEditMode(v => !v); ttDrag.current = null; }}
+              style={{padding:'7px 16px', borderRadius:'6px', border:'none', cursor:'pointer', fontSize:'13px', fontWeight:'bold', color:'#fff', background: editMode ? '#2e7d32' : '#d32f2f'}}
+            >{editMode ? '✅ 수정 완료' : '✏️ 수정하기'}</button>
+            <button className="no-print" onClick={undo} disabled={history.length === 0}
+              style={{padding:'7px 12px', borderRadius:'6px', border:'none', cursor: history.length ? 'pointer' : 'not-allowed', fontSize:'12px', fontWeight:'bold', color:'#fff', background: history.length ? '#1976D2' : '#ccc'}}
+            >↩️ 되돌리기{history.length ? ` (${history.length})` : ''}</button>
+            <button className="no-print" onClick={() => { setEditMode(false); setTimeout(() => window.print(), 100); }} style={{padding:'7px 16px', borderRadius:'6px', border:'none', cursor:'pointer', fontSize:'13px', fontWeight:'bold', color:'#fff', background:'#1976D2'}}>🖨️ 인쇄</button>
+            {sync.status === 'saving' && <span className="no-print" style={{fontSize:'12px', color:'#1976D2', fontWeight:'bold'}}>⏳ 저장 중…</span>}
+            {sync.status === 'ok' && <span className="no-print" style={{fontSize:'12px', color:'#2e7d32', fontWeight:'bold'}}>☁️ 저장됨</span>}
+            {sync.status === 'offline' && <span className="no-print" style={{fontSize:'12px', color:'#fff', background:'#F57F17', borderRadius:'12px', padding:'3px 10px', fontWeight:'bold'}}>⚠️ 서버 연결 안 됨</span>}
+            {editMode && (
+              <span className="no-print" style={{fontSize:'12px', color:'#555'}}>
+                반 제목(⠿)을 끌면 <b>반 전체</b>가, 학생 이름을 끌면 <b>그 학생만</b> 옮겨집니다 · ✕는 그 학생의 그 수업만 삭제
+              </span>
+            )}
           </div>
+          {editMode && scheduleWarnings.length > 0 && (
+            <div className="no-print" style={{background:'#FFEBEE', border:'2px solid #d32f2f', borderRadius:'8px', padding:'8px 12px', marginBottom:'8px', maxHeight:'130px', overflowY:'auto'}}>
+              <div style={{fontWeight:'bold', color:'#d32f2f', marginBottom:'4px', fontSize:'13px'}}>⚠️ 경고 {scheduleWarnings.length}건</div>
+              {scheduleWarnings.slice(0, 8).map((w, i) => (
+                <div key={i} style={{fontSize:'12px', color:'#b71c1c', lineHeight:1.5}}>• {w}</div>
+              ))}
+            </div>
+          )}
           <div className="tt-wrap" style={{overflowX:'auto', background:'#fff', borderRadius:'10px', boxShadow:'0 2px 8px rgba(0,0,0,0.08)', padding:'2px'}}>
             <table className="tt" style={{borderCollapse:'collapse', fontSize:'11px', tableLayout:'fixed'}}>
               <thead>
@@ -764,17 +837,41 @@ function App() {
                       const clr = TEACHER_COLORS[tname(c.id)] || TEACHER_COLORS['숙제반'];
                       return (
                         <td key={d + c.id}
+                            onDragOver={(ev) => { if (editMode) ev.preventDefault(); }}
+                            onDrop={() => { if (editMode) dropOnCell(c.id, d, h); }}
                             style={{verticalAlign:'top', padding:'4px 5px', lineHeight:1.35,
                                     border:'1px solid #d5dae0',
                                     borderRight: (ci === cols.length-1 && di < DAYS.length-1) ? '2px solid #7f8c9b' : '1px solid #d5dae0',
                                     background: cell ? clr.bg : '#fff'}}>
                           {cell && (
                             <>
-                              <div style={{fontWeight:'bold', color: clr.text, fontSize:'10px', marginBottom:'2px'}}>
-                                {gLabel(cell.grades)} <span style={{fontWeight:'normal', opacity:.7}}>{cell.names.length}</span>
+                              <div
+                                draggable={editMode}
+                                onDragStart={() => { if (editMode) ttDrag.current = { who: c.id, day: d, hour: h, subject: cell.subject, teacherId: cell.items[0]?.teacherId || '' }; }}
+                                onDragEnd={() => { ttDrag.current = null; }}
+                                title={editMode ? '끌어서 이 반 전체를 옮깁니다' : undefined}
+                                style={{fontWeight:'bold', color: clr.text, fontSize:'10px', marginBottom:'2px',
+                                        cursor: editMode ? 'grab' : undefined}}>
+                                {editMode && '⠿ '}{gLabel(cell.grades)} <span style={{fontWeight:'normal', opacity:.7}}>{cell.names.length}</span>
                               </div>
-                              {cell.names.map(n => (
-                                <div key={n} style={{fontSize:'10.5px', color:'#333', whiteSpace:'nowrap'}}>{n}</div>
+                              {cell.items.map((it, ii) => (
+                                <div key={it.studentId + ii}
+                                  draggable={editMode}
+                                  onDragStart={(ev) => { if (!editMode) return; ev.stopPropagation(); ttDrag.current = { who: c.id, day: d, hour: h, subject: it.subject, teacherId: it.teacherId, studentId: it.studentId }; }}
+                                  onDragEnd={() => { ttDrag.current = null; }}
+                                  title={editMode ? '끌어서 이 학생만 옮깁니다' : undefined}
+                                  style={{fontSize:'10.5px', color:'#333', whiteSpace:'nowrap',
+                                          display:'flex', alignItems:'center', gap:'3px',
+                                          cursor: editMode ? 'grab' : undefined}}>
+                                  <span>{it.name}</span>
+                                  {editMode && (
+                                    <button
+                                      onClick={(ev) => { ev.stopPropagation(); removeFromCell(it.studentId, it.subject, d, h); }}
+                                      title="이 학생의 이 수업을 지웁니다"
+                                      style={{marginLeft:'auto', border:'none', background:'transparent', color:'#d32f2f',
+                                              cursor:'pointer', fontSize:'10px', lineHeight:1, padding:0}}>✕</button>
+                                  )}
+                                </div>
                               ))}
                             </>
                           )}
