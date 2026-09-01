@@ -40,9 +40,9 @@ interface ScheduleEntry {
 const TEACHERS: Teacher[] = [
   { id: 'korean_1', name: '문원영', subject: '국어' },
   { id: 'elem_math_1', name: '문소현', subject: '초등수학' },
-  { id: 'elem_math_2', name: '조교', subject: '초등수학' },
+  { id: 'elem_math_2', name: '안', subject: '초등수학' },
   { id: 'mid_math_1', name: '문소현', subject: '중등수학' },
-  { id: 'mid_math_2', name: '조교', subject: '중등수학' },
+  { id: 'mid_math_2', name: '안', subject: '중등수학' },
   { id: 'elem_eng_1', name: 'Kris', subject: '초등영어' },
   { id: 'elem_eng_2', name: '공', subject: '초등영어' },
   { id: 'elem_eng_3', name: '부원장', subject: '초등영어' },
@@ -58,7 +58,7 @@ const DAYS: DayOfWeek[] = ['월', '화', '수', '목', '금'];
 const TEACHER_COLORS: Record<string, {bg: string; border: string; text: string}> = {
   '문원영': { bg: '#E3F2FD', border: '#1976D2', text: '#0D47A1' },
   '문소현': { bg: '#E8F5E9', border: '#388E3C', text: '#1B5E20' },
-  '조교': { bg: '#F5F5F5', border: '#757575', text: '#424242' },
+  '안': { bg: '#F5F5F5', border: '#757575', text: '#424242' },
   'Kris': { bg: '#FFF3E0', border: '#F57C00', text: '#E65100' },
   '공': { bg: '#FCE4EC', border: '#C2185B', text: '#880E4F' },
   '부원장': { bg: '#F3E5F5', border: '#7B1FA2', text: '#4A148C' },
@@ -725,7 +725,7 @@ function App() {
       { id: '클리닉', label: '영어 클리닉' },
       { id: '문원영', label: '국어 원T' },
       { id: '문소현', label: '수학 문소현' },
-      { id: '조교',   label: '수학 조교' },
+      { id: '안',     label: '수학 안T' },
       { id: '숙제반', label: '숙제반' },
     ];
     const cols = ALL_COLS.filter(c => grid[c.id]);
