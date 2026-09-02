@@ -186,6 +186,8 @@ const SEED_VERSION = '2026-08-25-시트기준-중등포함-v18';
 // 공용 저장소(구글시트 + Apps Script) — 선생님 누구나 같은 시간표를 보고 저장한다.
 const SERVER_URL = 'https://script.google.com/macros/s/AKfycbwfjo6hlMaz0k48AnrYq4LJmrjF69kwQSfZTK8o6MoeX57_9BxYkF9H7DSODYyMX4ih6A/exec';
 type SyncStatus = 'loading' | 'ok' | 'saving' | 'offline' | 'conflict' | 'empty';
+// 서버와 맞춰야 하는 앱 버전. 다르면 서버가 저장을 거부하고 새로고침을 시킨다.
+const BUILD = '2026-09-02';
 
 function App() {
   const [currentView, setCurrentView] = useState<'dashboard' | 'students' | 'teachers'>('dashboard');
@@ -244,6 +246,8 @@ function App() {
   const [ttPick, setTtPick] = useState<{who: string; day: DayOfWeek; hour: number; subject: string; teacherId: string; studentId?: string; label: string} | null>(null);
   const [ttAdd, setTtAdd] = useState<{who: string; day: DayOfWeek; hour: number} | null>(null);
   const [ttSearch, setTtSearch] = useState('');
+  const [stale, setStale] = useState(false);                               // 이 창이 예전 버전
+  const [lock, setLock] = useState<{ by: string; until: number } | null>(null);   // 지금 수정 중인 사람
 
   // 저장본이 없을 때(첫 방문)만 시드 버전을 찍는다.
   // 저장본이 있으면 버전을 그대로 둬서, 위 안내가 원장님이 선택할 때까지 남아 있게 한다.
@@ -472,8 +476,8 @@ function App() {
     setSync(s2 => ({ ...s2, status: 'saving' }));
     try {
       const body = whole
-        ? { students: list, by: meRef.current || '이름없음', force: true }
-        : { mode: 'patch', changed, deleted, by: meRef.current || '이름없음' };
+        ? { students: list, by: meRef.current || '이름없음', force: true, build: BUILD }
+        : { mode: 'patch', changed, deleted, by: meRef.current || '이름없음', build: BUILD };
       const r = await fetch(SERVER_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },   // 미리검사(preflight) 피하기
@@ -481,6 +485,12 @@ function App() {
         body: JSON.stringify(body),
       });
       const d = await r.json();
+      if (d.stale) { setStale(true); setSync(s2 => ({ ...s2, status: 'offline' })); return; }
+      if (d.locked) {
+        setLock({ by: d.lockBy, until: d.lockUntil });
+        setSync(s2 => ({ ...s2, status: 'offline', err: `${d.lockBy} 선생님이 수정 중` }));
+        return;
+      }
       if (d.conflict) { setSync({ status: 'conflict', at: d.at, by: d.by }); return; }
       if (!d.ok) throw new Error(d.error || '저장 실패');
       changed.forEach(s2 => dirtyRef.current.delete(s2.id));
@@ -540,11 +550,61 @@ function App() {
       try {
         const r = await fetch(`${SERVER_URL}?action=rev`, { redirect: 'follow' });
         const d = await r.json();
+        if (d.ok) setLock(d.lockBy ? { by: d.lockBy, until: d.lockUntil } : null);
         if (d.ok && d.rev !== revRef.current) pullNow();
       } catch { /* 연결 안 되면 다음 주기에 다시 */ }
     }, 7000);
     return () => window.clearInterval(t);
   }, [sync.status]);
+
+  // ── 수정 잠금: 한 번에 한 사람만 고치게 한다 ──────────────────
+  const askLock = async (want: boolean): Promise<boolean> => {
+    try {
+      const r = await fetch(SERVER_URL, {
+        method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, redirect: 'follow',
+        body: JSON.stringify({ mode: 'lock', by: meRef.current || '이름없음', release: !want, build: BUILD }),
+      });
+      const d = await r.json();
+      setLock(d.lockBy ? { by: d.lockBy, until: d.lockUntil } : null);
+      if (!d.ok && d.locked) {
+        alert('지금 ' + d.lockBy + ' 선생님이 수정 중입니다.' + String.fromCharCode(10) +
+              "그분이 '수정 완료'를 누르면 바로 수정하실 수 있습니다.");
+        return false;
+      }
+      return true;
+    } catch {
+      alert('서버와 연결되지 않아 수정을 시작할 수 없습니다.');
+      return false;
+    }
+  };
+  const toggleEdit = async () => {
+    if (editMode) { setEditMode(false); setCopied(null); setTtPick(null); await askLock(false); return; }
+    if (!(meRef.current || '').trim()) {
+      alert('먼저 상단에 성함을 입력해 주세요.' + String.fromCharCode(10) +
+            '누가 수정 중인지 다른 선생님께 보여드리기 위해 필요합니다.');
+      return;
+    }
+    if (await askLock(true)) setEditMode(true);
+  };
+  // 수정하는 동안 잠금이 풀리지 않게 40초마다 갱신
+  useEffect(() => {
+    if (!editMode) return;
+    const t = window.setInterval(() => { askLock(true); }, 40000);
+    return () => window.clearInterval(t);
+  }, [editMode]);
+  // 창을 닫으면 잠금 해제 시도
+  useEffect(() => {
+    const off = () => {
+      if (!editMode) return;
+      try {
+        navigator.sendBeacon(SERVER_URL, new Blob([JSON.stringify(
+          { mode: 'lock', by: meRef.current || '이름없음', release: true, build: BUILD })],
+          { type: 'text/plain;charset=utf-8' }));
+      } catch { /* 실패해도 2분 30초 뒤 자동 해제 */ }
+    };
+    window.addEventListener('pagehide', off);
+    return () => window.removeEventListener('pagehide', off);
+  }, [editMode]);
 
   const updateVocab = (studentId: string, value: string) => {
     setStudents(prev => prev.map(s => s.id === studentId ? { ...s, vocab: value } : s));
@@ -827,7 +887,7 @@ function App() {
             <h2 style={{margin:0}}>👩‍🏫 선생님별 시간표</h2>
             <button
               className="no-print"
-              onClick={() => { setEditMode(v => !v); ttDrag.current = null; }}
+              onClick={toggleEdit}
               style={{padding:'7px 16px', borderRadius:'6px', border:'none', cursor:'pointer', fontSize:'13px', fontWeight:'bold', color:'#fff', background: editMode ? '#2e7d32' : '#d32f2f'}}
             >{editMode ? '✅ 수정 완료' : '✏️ 수정하기'}</button>
             <button className="no-print" onClick={undo} disabled={history.length === 0}
@@ -843,6 +903,19 @@ function App() {
               </span>
             )}
           </div>
+          {stale && (
+            <div className="no-print" style={{background:'#B71C1C', color:'#fff', borderRadius:'8px', padding:'12px 16px', marginBottom:'10px', display:'flex', alignItems:'center', gap:'12px', flexWrap:'wrap'}}>
+              <span style={{fontSize:'14px', fontWeight:'bold'}}>
+                ⚠️ 이 창은 예전 버전입니다. 저장이 되지 않습니다 — 새로고침해 주세요.
+              </span>
+              <button onClick={() => location.reload()} style={{marginLeft:'auto', padding:'7px 16px', borderRadius:'6px', border:'none', cursor:'pointer', fontSize:'13px', fontWeight:'bold', background:'#fff', color:'#B71C1C'}}>지금 새로고침</button>
+            </div>
+          )}
+          {!editMode && lock && lock.by !== (me || '이름없음') && (
+            <div className="no-print" style={{background:'#FFF8E1', border:'2px solid #F9A825', borderRadius:'8px', padding:'8px 14px', marginBottom:'10px', fontSize:'13px', color:'#8D6E20'}}>
+              ✏️ 지금 <b>{lock.by}</b> 선생님이 수정 중입니다. 고치는 내용이 이 화면에도 바로 반영됩니다.
+            </div>
+          )}
           {editMode && ttPick && (
             <div className="no-print" style={{background:'#E3F2FD', border:'2px solid #1976D2', borderRadius:'8px', padding:'8px 12px', marginBottom:'8px', display:'flex', alignItems:'center', gap:'10px', flexWrap:'wrap'}}>
               <span style={{fontSize:'13px', color:'#0D47A1'}}>
@@ -1028,7 +1101,7 @@ function App() {
             <h2 style={{margin:0}}>📊 전체 시간표</h2>
             <button
               className="no-print"
-              onClick={() => { setEditMode(v => !v); setCopied(null); }}
+              onClick={toggleEdit}
               style={{padding:'7px 16px', borderRadius:'6px', border:'none', cursor:'pointer', fontSize:'13px', fontWeight:'bold', color:'#fff', background: editMode ? '#2e7d32' : '#d32f2f'}}
             >{editMode ? '✅ 수정 완료' : '✏️ 수정하기'}</button>
             <button
@@ -1111,6 +1184,19 @@ function App() {
               <button onClick={() => { if (serverCopy) { backupNow(); lastAppliedRef.current = JSON.stringify(serverCopy.students); setStudents(serverCopy.students); syncedRef.current = snapshotOf(serverCopy.students); pendingRef.current = false; setServerCopy(null); setSync({ status: 'ok', at: serverCopy.at, by: serverCopy.by }); } else { pullNow(); } }}
                 style={{padding:'6px 14px', borderRadius:'6px', border:'none', cursor:'pointer', fontSize:'12px', fontWeight:'bold', background:'#F57C00', color:'#fff'}}>서버 것으로 보기</button>
               <button onClick={() => { backupNow(); setServerCopy(null); pushNow(true); }} style={{padding:'6px 14px', borderRadius:'6px', border:'1px solid #F57C00', cursor:'pointer', fontSize:'12px', fontWeight:'bold', background:'#fff', color:'#E65100'}}>내 것을 서버에 올리기</button>
+            </div>
+          )}
+          {stale && (
+            <div className="no-print" style={{background:'#B71C1C', color:'#fff', borderRadius:'8px', padding:'12px 16px', marginBottom:'10px', display:'flex', alignItems:'center', gap:'12px', flexWrap:'wrap'}}>
+              <span style={{fontSize:'14px', fontWeight:'bold'}}>
+                ⚠️ 이 창은 예전 버전입니다. 저장이 되지 않습니다 — 새로고침해 주세요.
+              </span>
+              <button onClick={() => location.reload()} style={{marginLeft:'auto', padding:'7px 16px', borderRadius:'6px', border:'none', cursor:'pointer', fontSize:'13px', fontWeight:'bold', background:'#fff', color:'#B71C1C'}}>지금 새로고침</button>
+            </div>
+          )}
+          {!editMode && lock && lock.by !== (me || '이름없음') && (
+            <div className="no-print" style={{background:'#FFF8E1', border:'2px solid #F9A825', borderRadius:'8px', padding:'8px 14px', marginBottom:'10px', fontSize:'13px', color:'#8D6E20'}}>
+              ✏️ 지금 <b>{lock.by}</b> 선생님이 수정 중입니다. 고치는 내용이 이 화면에도 바로 반영됩니다.
             </div>
           )}
           {seedNotice && (
