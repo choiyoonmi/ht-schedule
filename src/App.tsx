@@ -187,7 +187,7 @@ const SEED_VERSION = '2026-08-25-시트기준-중등포함-v18';
 const SERVER_URL = 'https://script.google.com/macros/s/AKfycbwfjo6hlMaz0k48AnrYq4LJmrjF69kwQSfZTK8o6MoeX57_9BxYkF9H7DSODYyMX4ih6A/exec';
 type SyncStatus = 'loading' | 'ok' | 'saving' | 'offline' | 'conflict' | 'empty';
 // 서버와 맞춰야 하는 앱 버전. 다르면 서버가 저장을 거부하고 새로고침을 시킨다.
-const BUILD = '2026-09-02';
+const BUILD = '2026-09-03';
 
 function App() {
   const [currentView, setCurrentView] = useState<'dashboard' | 'students' | 'teachers'>('dashboard');
@@ -361,6 +361,7 @@ function App() {
   const deletedRef = useRef<Set<string>>(new Set());      // 이 창에서 내가 지운 학생
   const prevRef = useRef<Student[]>(students);            // 직전 학생 목록 (무엇이 바뀌었는지 비교용)
   const pendingRef = useRef(false);       // 아직 서버에 못 올린 편집이 있다
+  const holdRef = useRef(0);              // 막혔을 때 잠시 쉬었다 다시 시도할 시각
   const saveTimer = useRef<number | undefined>(undefined);
 
   // 두 시간표가 같은 내용인지 (키 순서·형식 차이는 무시)
@@ -469,6 +470,9 @@ function App() {
     //   남의 최신 수정을 옛 내용으로 되돌려버렸다.
     const changed = list.filter(s2 => dirtyRef.current.has(s2.id));
     const deleted = Array.from(deletedRef.current);
+    // 보내는 순간의 내용을 적어둔다. 서버가 답할 때까지 1~5초가 걸리는데
+    // 그 사이에 또 고쳤다면 그 수정은 아직 서버에 없다 → 깨끗해졌다고 하면 안 된다.
+    const sentSnap = new Map(changed.map(s2 => [s2.id, JSON.stringify(s2)]));
     if (!whole && !changed.length && !deleted.length) {
       pendingRef.current = false;
       return;
@@ -485,16 +489,21 @@ function App() {
         body: JSON.stringify(body),
       });
       const d = await r.json();
-      if (d.stale) { setStale(true); setSync(s2 => ({ ...s2, status: 'offline' })); return; }
+      if (d.stale) { setStale(true); holdRef.current = Date.now() + 60000; setSync(s2 => ({ ...s2, status: 'offline' })); return; }
       if (d.locked) {
         setLock({ by: d.lockBy, until: d.lockUntil });
+        holdRef.current = Date.now() + 15000;
         setSync(s2 => ({ ...s2, status: 'offline', err: `${d.lockBy} 선생님이 수정 중` }));
         return;
       }
       if (d.conflict) { setSync({ status: 'conflict', at: d.at, by: d.by }); return; }
       if (!d.ok) throw new Error(d.error || '저장 실패');
-      changed.forEach(s2 => dirtyRef.current.delete(s2.id));
+      const nowMap = new Map(studentsRef.current.map(s2 => [s2.id, JSON.stringify(s2)]));
+      sentSnap.forEach((snap, id) => {
+        if (nowMap.get(id) === snap) dirtyRef.current.delete(id);   // 보낸 뒤로 안 바뀐 것만 해제
+      });
       deleted.forEach(id => deletedRef.current.delete(id));
+      holdRef.current = 0;
       if (d.students && d.students.length) {
         applyServerList(d.students, d.rev, d.at, d.by);
       } else {
@@ -545,12 +554,17 @@ function App() {
   useEffect(() => {                    // 7초마다 확인 — 못 보낸 저장은 다시 시도하고, 남이 고쳤으면 받아온다
     const t = window.setInterval(async () => {
       if (sync.status === 'conflict' || sync.status === 'saving') return;
-      if (pendingRef.current) { pushNow(); return; }
+      if (pendingRef.current && Date.now() >= holdRef.current) { pushNow(); return; }
       if (Date.now() - lastEditRef.current < 3000) return;   // 지금 고치는 중이면 건드리지 않는다
       try {
         const r = await fetch(`${SERVER_URL}?action=rev`, { redirect: 'follow' });
         const d = await r.json();
         if (d.ok) setLock(d.lockBy ? { by: d.lockBy, until: d.lockUntil } : null);
+        // 새 버전이 올라오면 스스로 새로고침한다 (선생님들이 직접 안 해도 되게)
+        if (d.ok && d.build && d.build !== BUILD && !dirtyRef.current.size) {
+          window.location.reload();
+          return;
+        }
         if (d.ok && d.rev !== revRef.current) pullNow();
       } catch { /* 연결 안 되면 다음 주기에 다시 */ }
     }, 7000);
