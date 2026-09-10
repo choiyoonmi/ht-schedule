@@ -803,6 +803,22 @@ function App() {
       { id: '숙제반', label: '숙제반' },
     ];
     const cols = ALL_COLS.filter(c => grid[c.id]);
+    // ── 칸 너비를 이름 길이에 맞춘다 ────────────────────────────
+    //   한글은 글자당 거의 글자크기만큼, 숫자·괄호는 그 절반쯤 차지한다.
+    const textW = (s: string, fs: number) => {
+      let w = 0;
+      for (const ch of s) w += /[가-힣ㄱ-ㅎ]/.test(ch) ? fs : fs * 0.56;
+      return w;
+    };
+    const colW: Record<string, number> = {};
+    cols.forEach(c => {
+      let w = 0;
+      Object.keys(grid[c.id] || {}).forEach(k => {
+        grid[c.id][k].names.forEach(nm => { w = Math.max(w, textW(nm, 10.5)); });
+      });
+      // 여백 + (고칠 때만 생기는 ⇄ ✕ 단추 자리)
+      colW[c.id] = Math.max(40, Math.min(96, Math.ceil(w) + 8 + (editMode ? 30 : 0)));
+    });
 
     // ── 선생님별 표에서 바로 고치기 ──────────────────────────────
     // 이 표에서 옮기거나 지우면 학생 개인 시간표가 그대로 바뀐다.
@@ -995,7 +1011,9 @@ function App() {
                     const clr = TEACHER_COLORS[tname(c.id)] || TEACHER_COLORS['숙제반'];
                     return (
                       <th key={d + c.id}
-                          style={{...ttHead, width:'92px', minWidth:'92px', background: clr.bg, color: clr.text,
+                          style={{...ttHead, width: colW[c.id] + 'px', minWidth: colW[c.id] + 'px',
+                                  whiteSpace:'normal', wordBreak:'keep-all', fontSize:'10px', padding:'2px 1px',
+                                  background: clr.bg, color: clr.text,
                                   borderRight: (ci === cols.length-1 && di < DAYS.length-1) ? '2px solid #7f8c9b' : '1px solid #b6bec7'}}>
                         {c.label}
                       </th>
@@ -1020,7 +1038,8 @@ function App() {
                               if (cell) return;                       // 수업이 있는 칸은 눌러도 아무 일 없음
                               setTtAdd({ who: c.id, day: d, hour: h }); setTtSearch('');
                             }}
-                            style={{verticalAlign:'top', padding:'4px 5px', lineHeight:1.35,
+                            style={{verticalAlign:'top', padding:'3px 3px', lineHeight:1.3,
+                                    width: colW[c.id] + 'px', maxWidth: colW[c.id] + 'px',
                                     border:'1px solid #d5dae0',
                                     borderRight: (ci === cols.length-1 && di < DAYS.length-1) ? '2px solid #7f8c9b' : '1px solid #d5dae0',
                                     background: cell ? clr.bg : '#fff'}}>
@@ -1031,7 +1050,8 @@ function App() {
                                 onDragStart={(ev) => { if (!editMode) return; ttDrag.current = { who: c.id, day: d, hour: h, subject: cell.subject, teacherId: cell.items[0]?.teacherId || '' }; ev.dataTransfer.effectAllowed = 'move'; ev.dataTransfer.setData('text/plain', '반'); }}
                                 onDragEnd={() => { ttDrag.current = null; }}
                                 title={editMode ? '끌어서 이 반 전체를 옮깁니다 (또는 ⇄ 버튼)' : undefined}
-                                style={{fontWeight:'bold', color: clr.text, fontSize:'10px', marginBottom:'2px',
+                                style={{fontWeight:'bold', color: clr.text, fontSize:'9.5px', marginBottom:'2px',
+                                        whiteSpace:'normal', wordBreak:'keep-all', lineHeight:1.15,
                                         cursor: editMode ? 'grab' : undefined}}>
                                 {editMode && (
                                   <button
