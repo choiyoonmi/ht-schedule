@@ -372,6 +372,10 @@ function App() {
     ).join(';')
   ).sort().join('\n');
 
+  // 마지막으로 서버와 같았던 내용의 지문 — 다음에 열 때 '이 기기에서 고친 게 있나'를 가린다
+  const rememberSynced = (list: Student[]) => {
+    try { localStorage.setItem('happytree_synced_sig', signature(list)); } catch { /* 저장공간 문제는 무시 */ }
+  };
   const snapshotOf = (list: Student[]) => {
     const m: Record<string, string> = {};
     list.forEach(s2 => { m[s2.id] = JSON.stringify(s2); });
@@ -395,6 +399,7 @@ function App() {
     pendingRef.current = localEdited.size > 0 || deletedRef.current.size > 0;
     setServerCopy(null);
     localStorage.setItem('happytree_rev', String(rev));
+    rememberSynced(list);
     setSync({ status: 'ok', at, by });
     if (localEdited.size > 0) {
       window.clearTimeout(saveTimer.current);
@@ -416,9 +421,18 @@ function App() {
           backupNow();
           setReplacedNotice(true);
         } else if (opts.firstTime && hadLocal && differs && syncedBefore) {
-          setServerCopy({ students: d.students, at: d.at, by: d.by });
-          setSync({ status: 'conflict', at: d.at, by: d.by });
-          return;
+          // 이 기기 것이 '마지막으로 서버와 맞췄던 그대로'면 고친 게 없는 것 —
+          // 그동안 다른 분이 저장한 것만 놓친 것이니 묻지 않고 최신으로 맞춘다.
+          // (예전엔 여기서 '어느 쪽 쓸지 골라주세요'를 띄워 고르기 전까지 수정이 막혔다)
+          const lastSig = localStorage.getItem('happytree_synced_sig');
+          const mineSig = signature(studentsRef.current);
+          if (lastSig === null) {
+            backupNow();            // 예전 기기: 기록이 없으니 백업만 해두고 맞춘다
+          } else if (lastSig !== mineSig) {
+            setServerCopy({ students: d.students, at: d.at, by: d.by });   // 정말 못 보낸 수정이 있을 때만 묻는다
+            setSync({ status: 'conflict', at: d.at, by: d.by });
+            return;
+          }
         }
         applyServerList(d.students, d.rev, d.at, d.by);
       } else {
@@ -455,6 +469,7 @@ function App() {
       setServerCopy(null);
       setReplacedNotice(false);
       localStorage.setItem('happytree_rev', String(d.rev));
+      rememberSynced(d.students);
       setSync({ status: 'ok', at: d.at, by: d.by });
     } catch (e) {
       setSync(s2 => ({ ...s2, status: 'offline', err: String(e) }));
@@ -511,6 +526,7 @@ function App() {
         syncedRef.current = snapshotOf(list);
         pendingRef.current = false;
         localStorage.setItem('happytree_rev', String(d.rev));
+        rememberSynced(list);
         setSync({ status: 'ok', at: d.at, by: d.by });
       }
     } catch (e) {
@@ -1215,7 +1231,7 @@ function App() {
                   : <><b>{sync.by || '다른 선생님'}</b> 님이 {sync.at} 에 저장했습니다. 지금 화면과 서버 내용이 다릅니다.</>}
                 {sync.at && <span style={{color:'#8D6E63'}}> (서버 저장: {sync.at} {sync.by})</span>}
               </span>
-              <button onClick={() => { if (serverCopy) { backupNow(); lastAppliedRef.current = JSON.stringify(serverCopy.students); setStudents(serverCopy.students); syncedRef.current = snapshotOf(serverCopy.students); pendingRef.current = false; setServerCopy(null); setSync({ status: 'ok', at: serverCopy.at, by: serverCopy.by }); } else { pullNow(); } }}
+              <button onClick={() => { if (serverCopy) { backupNow(); lastAppliedRef.current = JSON.stringify(serverCopy.students); setStudents(serverCopy.students); syncedRef.current = snapshotOf(serverCopy.students); rememberSynced(serverCopy.students); pendingRef.current = false; setServerCopy(null); setSync({ status: 'ok', at: serverCopy.at, by: serverCopy.by }); } else { pullNow(); } }}
                 style={{padding:'6px 14px', borderRadius:'6px', border:'none', cursor:'pointer', fontSize:'12px', fontWeight:'bold', background:'#F57C00', color:'#fff'}}>서버 것으로 보기</button>
               <button onClick={() => { backupNow(); setServerCopy(null); pushNow(true); }} style={{padding:'6px 14px', borderRadius:'6px', border:'1px solid #F57C00', cursor:'pointer', fontSize:'12px', fontWeight:'bold', background:'#fff', color:'#E65100'}}>내 것을 서버에 올리기</button>
             </div>
