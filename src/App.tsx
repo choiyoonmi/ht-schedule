@@ -238,6 +238,8 @@ function App() {
   // 시간표 직접 편집(드래그 이동 / 클릭 복사·붙여넣기)
   const [copied, setCopied] = useState<{studentId: string; subject: string; teacherId: string; teacherName: string; day: DayOfWeek; hour: number} | null>(null);
   const dragRef = useRef<{studentId: string; subject: string; day: DayOfWeek; hour: number} | null>(null);
+  const [cellMenu, setCellMenu] = useState<{studentId: string; day: DayOfWeek; hour: number} | null>(null);   // 칸 눌러 과목 고르기
+  const [picked, setPicked] = useState<string[]>([]);                                                          // 여러 명 함께 고치기
   // 선생님별 표에서 끌어 옮길 때 쓰는 정보 (studentId가 있으면 그 학생만, 없으면 반 전체)
   const ttDrag = useRef<{who: string; day: DayOfWeek; hour: number; subject: string; teacherId: string; studentId?: string} | null>(null);
   const [history, setHistory] = useState<Student[][]>([]); // 되돌리기용 편집 이력
@@ -608,7 +610,7 @@ function App() {
     }
   };
   const toggleEdit = async () => {
-    if (editMode) { setEditMode(false); setCopied(null); setTtPick(null); await askLock(false); return; }
+    if (editMode) { setEditMode(false); setCopied(null); setTtPick(null); setCellMenu(null); setPicked([]); await askLock(false); return; }
     if (!(meRef.current || '').trim()) {
       alert('먼저 상단에 성함을 입력해 주세요.' + String.fromCharCode(10) +
             '누가 수정 중인지 다른 선생님께 보여드리기 위해 필요합니다.');
@@ -638,10 +640,6 @@ function App() {
 
   const updateVocab = (studentId: string, value: string) => {
     setStudents(prev => prev.map(s => s.id === studentId ? { ...s, vocab: value } : s));
-  };
-  const findTeacherId = (student: Student, subject: string, day: DayOfWeek, hour: number): string => {
-    const f = (student.selectedTeachers[subject] || []).find(x => x.day === day && x.hour === hour);
-    return f ? f.teacherId : '';
   };
   const moveClass = (studentId: string, subject: string, srcDay: DayOfWeek, srcHour: number, dstDay: DayOfWeek, dstHour: number) => {
     if (srcDay === dstDay && srcHour === dstHour) return;
@@ -676,6 +674,39 @@ function App() {
       const cur = s.selectedTeachers[subject] || [];
       return { ...s, selectedTeachers: { ...s.selectedTeachers, [subject]: cur.filter(x => !(x.day === day && x.hour === hour)) } };
     }));
+  };
+
+  // ── 쉽게 고치기 ──────────────────────────────────────────
+  // 칸을 누른 학생이 '함께'로 체크해둔 학생 중 하나면, 체크한 학생 모두에게 적용한다
+  const targetsFor = (studentId: string) => (picked.includes(studentId) ? picked : [studentId]);
+  const withoutSlot = (st: Student, day: DayOfWeek, hour: number) => {
+    const out: { [subject: string]: TeacherSelection[] } = {};
+    for (const k in st.selectedTeachers) out[k] = st.selectedTeachers[k].filter(x => !(x.day === day && x.hour === hour));
+    return out;
+  };
+  // 그 칸을 이 과목·선생님으로 바꾼다(그 칸에 있던 수업은 빠진다)
+  const setCell = (ids: string[], day: DayOfWeek, hour: number, subject: string, teacherId: string) => {
+    pushHistory();
+    setStudents(prev => prev.map(st => {
+      if (!ids.includes(st.id)) return st;
+      const t = withoutSlot(st, day, hour);
+      t[subject] = [...(t[subject] || []), { teacherId, day, hour }];
+      return { ...st, selectedTeachers: t };
+    }));
+  };
+  const clearCell = (ids: string[], day: DayOfWeek, hour: number) => {
+    pushHistory();
+    setStudents(prev => prev.map(st => ids.includes(st.id) ? { ...st, selectedTeachers: withoutSlot(st, day, hour) } : st));
+  };
+  // 다른 학생 시간표를 그대로 가져온다
+  const copyWholeFrom = (ids: string[], srcId: string) => {
+    const src = students.find(x => x.id === srcId);
+    if (!src) return;
+    const names = students.filter(x => ids.includes(x.id) && x.id !== srcId).map(x => x.name);
+    if (!names.length) return;
+    if (!confirm(`${names.join(', ')} 시간표를 ${src.name} 시간표와 똑같이 바꿉니다.` + String.fromCharCode(10) + '(잘못되면 ↩️되돌리기로 돌아갑니다)')) return;
+    pushHistory();
+    setStudents(prev => prev.map(st => (ids.includes(st.id) && st.id !== srcId) ? { ...st, selectedTeachers: cloneTeachers(src) } : st));
   };
 
   const cloneTeachers = (st: Student) => {
@@ -1274,7 +1305,7 @@ function App() {
               style={{padding:'5px 12px', borderRadius:'4px', border:'1px solid #1976D2', cursor: history.length ? 'pointer' : 'not-allowed', fontSize:'12px', fontWeight:'bold', background: history.length ? '#1976D2' : '#ccc', color:'#fff'}}
             >↩️ 되돌리기{history.length ? ` (${history.length})` : ''}</button>
             <span style={{fontSize:'12px', color:'#888'}}>
-              💡 과목을 <b>드래그</b>해서 옮기기 · 과목 <b>클릭</b>해 복사 후 원하는 칸 <b>클릭</b>해 붙여넣기 · 과목의 <b style={{color:'#d32f2f'}}>×</b> 눌러 삭제
+              💡 <b>칸을 누르면</b> 과목·선생님을 고를 수 있어요 · 과목 <b>드래그</b>=옮기기 · <b style={{color:'#d32f2f'}}>×</b>=삭제 · 카드의 <b>☑ 함께</b>를 여러 명 체크하면 한꺼번에 바뀝니다
             </span>
           </div>
           )}
@@ -1284,6 +1315,64 @@ function App() {
               <button onClick={() => setCopied(null)} style={{padding:'4px 12px', marginLeft:'auto', background:'#1976D2', color:'#fff', border:'none', borderRadius:'4px', cursor:'pointer', fontSize:'12px', fontWeight:'bold'}}>취소</button>
             </div>
           )}
+          {editMode && picked.length > 0 && (
+            <div className="no-print" style={{position:'sticky', top:0, zIndex:20, background:'#EDE7F6', border:'2px solid #5E35B1', borderRadius:'6px', padding:'8px 12px', marginBottom:'10px', display:'flex', alignItems:'center', gap:'10px', flexWrap:'wrap', fontSize:'13px'}}>
+              ☑ <b>{picked.length}명 함께 고치는 중</b>
+              <span style={{color:'#4527A0'}}>{students.filter(x => picked.includes(x.id)).map(x => x.name).join(', ')}</span>
+              <span style={{color:'#888'}}>— 이 중 아무 학생의 칸을 눌러 고르면 모두에게 똑같이 들어갑니다</span>
+              <button onClick={() => setPicked([])} style={{padding:'4px 12px', marginLeft:'auto', background:'#5E35B1', color:'#fff', border:'none', borderRadius:'4px', cursor:'pointer', fontSize:'12px', fontWeight:'bold'}}>선택 해제</button>
+            </div>
+          )}
+          {editMode && cellMenu && (() => {
+            const st = students.find(x => x.id === cellMenu.studentId);
+            if (!st) return null;
+            const { day, hour } = cellMenu;
+            const ids = targetsFor(st.id);
+            const here: { subject: string; teacherId: string }[] = [];
+            for (const k in st.selectedTeachers) st.selectedTeachers[k].forEach(x => { if (x.day === day && x.hour === hour) here.push({ subject: k, teacherId: x.teacherId }); });
+            const tName = (id: string) => id ? (TEACHERS.find(t => t.id === id)?.name || id) : '숙제반';
+            const subjLabel = (sj: string) => sj.replace('초등', '').replace('중등', '').replace('고등', '');
+            const close = () => setCellMenu(null);
+            return (
+              <div className="no-print" onClick={close} style={{position:'fixed', inset:0, background:'rgba(0,0,0,0.35)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:'16px'}}>
+                <div onClick={ev => ev.stopPropagation()} style={{background:'#fff', borderRadius:'12px', padding:'18px', width:'min(440px, 100%)', maxHeight:'85vh', overflowY:'auto', boxShadow:'0 8px 30px rgba(0,0,0,0.25)'}}>
+                  <div style={{fontSize:'17px', fontWeight:'bold', marginBottom:'4px'}}>{day}요일 {hour > 12 ? hour - 12 : hour}시</div>
+                  <div style={{fontSize:'13px', color:'#5E35B1', marginBottom:'12px'}}>
+                    {ids.length > 1 ? <>☑ {ids.length}명 함께: {students.filter(x => ids.includes(x.id)).map(x => x.name).join(', ')}</> : <>{st.name}</>}
+                  </div>
+                  {here.length > 0 && (
+                    <div style={{marginBottom:'12px', fontSize:'13px'}}>
+                      지금: {here.map((h2, i) => <b key={i} style={{marginRight:'8px'}}>{subjLabel(h2.subject)}({tName(h2.teacherId)})</b>)}
+                    </div>
+                  )}
+                  <div style={{fontSize:'12px', color:'#888', marginBottom:'6px'}}>이 칸에 넣을 수업을 누르세요</div>
+                  {getSubjectsForDivision(st.division).map(sj => {
+                    const opts = sj === '숙제반' ? [{ id: '', name: '숙제반' }] : TEACHERS.filter(t => t.subject === sj);
+                    return (
+                      <div key={sj} style={{display:'flex', alignItems:'center', gap:'6px', flexWrap:'wrap', marginBottom:'8px'}}>
+                        <span style={{width:'52px', fontSize:'13px', fontWeight:'bold'}}>{subjLabel(sj)}</span>
+                        {opts.map(t => {
+                          const c = TEACHER_COLORS[t.name] || { bg: '#F5F5F5', border: '#999', text: '#333' };
+                          const on = here.some(h2 => h2.subject === sj && h2.teacherId === t.id);
+                          return (
+                            <button key={t.id + sj} onClick={() => { setCellMenu(null); setCell(ids, day, hour, sj, t.id); }}
+                              style={{padding:'8px 12px', borderRadius:'8px', border:`2px solid ${c.border}`, background: on ? c.border : c.bg, color: on ? '#fff' : c.text, fontWeight:'bold', fontSize:'13px', cursor:'pointer'}}>
+                              {t.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
+                  <div style={{display:'flex', gap:'8px', marginTop:'14px', flexWrap:'wrap'}}>
+                    {here.length > 0 && <button onClick={() => { setCellMenu(null); clearCell(ids, day, hour); }} style={{padding:'8px 14px', borderRadius:'8px', border:'none', background:'#d32f2f', color:'#fff', fontWeight:'bold', cursor:'pointer'}}>🗑 비우기</button>}
+                    {here.length === 1 && ids.length === 1 && <button onClick={() => { setCellMenu(null); setCopied({ studentId: st.id, subject: here[0].subject, teacherId: here[0].teacherId, teacherName: tName(here[0].teacherId), day, hour }); }} style={{padding:'8px 14px', borderRadius:'8px', border:'1px solid #1976D2', background:'#fff', color:'#1976D2', fontWeight:'bold', cursor:'pointer'}}>📋 복사해서 다른 칸에</button>}
+                    <button onClick={close} style={{padding:'8px 14px', borderRadius:'8px', border:'1px solid #999', background:'#fff', color:'#555', fontWeight:'bold', cursor:'pointer', marginLeft:'auto'}}>닫기</button>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
           {students.length > 0 ? (
             <div data-student-grid style={styles.scheduleContainer}>
               {students.filter(s => !scheduleSearch.trim() || s.name.includes(scheduleSearch.trim())).map(student => {
@@ -1315,6 +1404,23 @@ function App() {
                         ) : null
                       )}
                     </div>
+                    {editMode && (
+                      <div className="no-print" style={{display:'flex', alignItems:'center', gap:'6px', margin:'0 0 6px'}}>
+                      <label title="여러 명을 체크하면 한꺼번에 고쳐집니다" style={{display:'flex', alignItems:'center', gap:'3px', fontSize:'12px', fontWeight:'bold', color:'#5E35B1', cursor:'pointer', whiteSpace:'nowrap', padding:'3px 6px', border:'1px solid #5E35B1', borderRadius:'4px', background: picked.includes(student.id) ? '#D1C4E9' : '#fff'}}>
+                        <input type="checkbox" checked={picked.includes(student.id)}
+                          onChange={ev => setPicked(p => ev.target.checked ? [...p, student.id] : p.filter(x => x !== student.id))} />
+                        함께
+                      </label>
+                      <select value=""
+                        onChange={ev => { if (ev.target.value) copyWholeFrom(targetsFor(student.id), ev.target.value); }}
+                        style={{flex:1, minWidth:0, padding:'5px', fontSize:'12px', border:'1px solid #5E35B1', borderRadius:'4px', color:'#4527A0', background:'#F3E5F5', cursor:'pointer'}}>
+                        <option value="">📋 {picked.includes(student.id) && picked.length > 1 ? `체크한 ${picked.length}명을` : ''} 다른 학생과 똑같이…</option>
+                        {[...students].filter(x => x.id !== student.id)
+                          .sort((a, b) => Number(b.division === student.division && b.grade === student.grade) - Number(a.division === student.division && a.grade === student.grade))
+                          .map(x => <option key={x.id} value={x.id}>{x.name} ({x.division} {x.grade}학년)</option>)}
+                      </select>
+                      </div>
+                    )}
                     <table style={{...styles.scheduleTable, fontSize: '12px', width: '100%'}}>
                       <thead>
                         <tr>
@@ -1339,8 +1445,12 @@ function App() {
                                     }
                                     dragRef.current = null;
                                   }}
-                                  onClick={() => { if (editMode && copied) pasteClass(student.id, copied.subject, copied.teacherId, day, hour); }}
-                                  style={{...styles.scheduleCell, padding: '4px', fontSize: '10px', cursor: (editMode && copied) ? 'copy' : undefined, minWidth: '36px', height: '24px'}}>
+                                  onClick={() => {
+                                    if (!editMode) return;
+                                    if (copied) { targetsFor(student.id).forEach(id => pasteClass(id, copied.subject, copied.teacherId, day, hour)); return; }
+                                    setCellMenu({ studentId: student.id, day, hour });
+                                  }}
+                                  style={{...styles.scheduleCell, padding: '4px', fontSize: '10px', cursor: editMode ? (copied ? 'copy' : 'pointer') : undefined, minWidth: '36px', height: '24px', background: (editMode && picked.includes(student.id)) ? '#F7F3FC' : undefined}}>
                                   {entries.map((e, idx) => {
                                     const color = TEACHER_COLORS[e.teacherName] || { bg: '#F5F5F5', border: '#999', text: '#333' };
                                     const isCopied = !!copied && copied.studentId === student.id && copied.subject === e.subject && copied.day === day && copied.hour === hour;
@@ -1349,8 +1459,8 @@ function App() {
                                         draggable={editMode}
                                         onDragStart={() => { if (editMode) dragRef.current = {studentId: student.id, subject: e.subject, day, hour}; }}
                                         onDragEnd={() => { dragRef.current = null; }}
-                                        onClick={(ev) => { if (!editMode) return; ev.stopPropagation(); setCopied({studentId: student.id, subject: e.subject, teacherId: findTeacherId(student, e.subject, day, hour), teacherName: e.teacherName, day, hour}); }}
-                                        title={editMode ? '드래그=이동 · 클릭=복사 · ×=삭제' : undefined}
+                                        onClick={(ev) => { if (!editMode || copied) return; ev.stopPropagation(); setCellMenu({ studentId: student.id, day, hour }); }}
+                                        title={editMode ? '누르기=과목 바꾸기 · 드래그=이동 · ×=삭제' : undefined}
                                         style={{
                                         backgroundColor: color.bg,
                                         borderLeft: `2px solid ${color.border}`,
